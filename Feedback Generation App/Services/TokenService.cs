@@ -19,6 +19,7 @@ namespace Feedback_Generation_App.Services
         {
             var claims = new[]
             {
+                new Claim(ClaimTypes.NameIdentifier, payloadDto.UserId.ToString()),
                 new Claim(ClaimTypes.Name, payloadDto.Username),
                 new Claim(ClaimTypes.Role, payloadDto.Role)
             };

@@ -81,9 +81,11 @@ builder.Services.AddCors(options =>
 // Dependency Injection
 // ========================
 
+builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPublicSurveyService, PublicSurveyService>();
 
 // ========================
 // JWT Authentication

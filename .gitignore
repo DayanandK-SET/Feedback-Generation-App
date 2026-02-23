@@ -1,0 +1,20 @@
+# Visual Studio / .NET 
+.vs/
+bin/
+obj/
+TestResults/
+.vscode/
+*.user
+*.suo
+*.cache
+*.ide
+*.ncb
+*.aps
+*.pch
+*.pdb
+*.opendb
+*.VC.db
+**/*.rsuser
+**/*.sdf
+**/*.dbmdl
+packages/**

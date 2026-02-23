@@ -38,6 +38,7 @@ namespace Feedback_Generation_App.Services
 
             var tokenPayload = new TokenPayloadDto
             {
+                UserId = user.Id,
                 Username = user.Username,
                 Role = user.Role
             };
