@@ -5,5 +5,19 @@ namespace Feedback_Generation_App.Interfaces
     public interface ISurveyService
     {
         Task<string> CreateSurvey(CreateSurveyDto dto, int creatorId);
+
+        Task<SurveyResponsesDto> GetSurveyResponsesAsync(int surveyId, int userId, GetSurveyResponsesRequestDto request);
+
+        Task DeleteSurveyAsync(int surveyId, int userId);
+
+        Task ToggleSurveyStatusAsync(int surveyId, int userId);
+
+        Task UpdateSurveyAsync(int surveyId, int userId, UpdateSurveyDto dto);
+
+        Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId);
+
+        Task<SurveyAnalyticsDto> GetSurveyAnalyticsAsync(int surveyId, int userId);
+
+
     }
 }

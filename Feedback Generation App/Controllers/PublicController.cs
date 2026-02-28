@@ -1,5 +1,6 @@
 ﻿using Feedback_Generation_App.Interfaces;
 using Feedback_Generation_App.Models.DTOs;
+using Feedback_Generation_App.Services;
 using Microsoft.AspNetCore.Mvc;
 
 [Route("api/[controller]")]
@@ -25,12 +26,16 @@ public class PublicController : ControllerBase
     }
 
     [HttpPost("{publicIdentifier}/submit")]
-    public async Task<IActionResult> SubmitSurvey(
-        string publicIdentifier,
-        SubmitSurveyDto dto)
+    public async Task<IActionResult> SubmitSurvey(string publicIdentifier, SubmitSurveyDto dto)
     {
-        await _service.SubmitSurvey(publicIdentifier, dto);
-
-        return Ok("Response submitted successfully");
+        try
+        {
+            await _service.SubmitSurvey(publicIdentifier, dto);
+            return Ok("Survey submitted successfully");
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }

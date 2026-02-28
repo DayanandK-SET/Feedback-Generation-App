@@ -4,6 +4,7 @@ using Feedback_Generation_App.Contexts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Feedback_Generation_App.Migrations
 {
     [DbContext(typeof(FeedbackContext))]
-    partial class FeedbackContextModelSnapshot : ModelSnapshot
+    [Migration("20260224124014_PreventingDuplications")]
+    partial class PreventingDuplications
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -94,71 +97,6 @@ namespace Feedback_Generation_App.Migrations
                     b.HasIndex("SurveyId");
 
                     b.ToTable("Questions");
-                });
-
-            modelBuilder.Entity("Feedback_Generation_App.Models.QuestionBank", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedById")
-                        .HasColumnType("int");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("QuestionType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CreatedById");
-
-                    b.ToTable("QuestionBanks");
-                });
-
-            modelBuilder.Entity("Feedback_Generation_App.Models.QuestionBankOption", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("OptionText")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("QuestionBankId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuestionBankId");
-
-                    b.ToTable("QuestionBankOptions");
                 });
 
             modelBuilder.Entity("Feedback_Generation_App.Models.QuestionOption", b =>
@@ -346,28 +284,6 @@ namespace Feedback_Generation_App.Migrations
                     b.Navigation("Survey");
                 });
 
-            modelBuilder.Entity("Feedback_Generation_App.Models.QuestionBank", b =>
-                {
-                    b.HasOne("Feedback_Generation_App.Models.User", "CreatedBy")
-                        .WithMany()
-                        .HasForeignKey("CreatedById")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("CreatedBy");
-                });
-
-            modelBuilder.Entity("Feedback_Generation_App.Models.QuestionBankOption", b =>
-                {
-                    b.HasOne("Feedback_Generation_App.Models.QuestionBank", "QuestionBank")
-                        .WithMany("Options")
-                        .HasForeignKey("QuestionBankId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("QuestionBank");
-                });
-
             modelBuilder.Entity("Feedback_Generation_App.Models.QuestionOption", b =>
                 {
                     b.HasOne("Feedback_Generation_App.Models.Question", "Question")
@@ -405,11 +321,6 @@ namespace Feedback_Generation_App.Migrations
                 {
                     b.Navigation("Answers");
 
-                    b.Navigation("Options");
-                });
-
-            modelBuilder.Entity("Feedback_Generation_App.Models.QuestionBank", b =>
-                {
                     b.Navigation("Options");
                 });
 

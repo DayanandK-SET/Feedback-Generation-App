@@ -1,3 +1,4 @@
+using Feedback_Generation_App.Middlewares;
 using Feedback_Generation_App.Contexts;
 using Feedback_Generation_App.Interfaces;
 using Feedback_Generation_App.Repositories;
@@ -8,8 +9,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
-var builder = WebApplication.CreateBuilder(args);
 
+var builder = WebApplication.CreateBuilder(args);
 // ========================
 // Add Services
 // ========================
@@ -77,6 +78,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+
+
+
 // ========================
 // Dependency Injection
 // ========================
@@ -86,6 +90,7 @@ builder.Services.AddScoped<IPasswordService, PasswordService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPublicSurveyService, PublicSurveyService>();
+builder.Services.AddScoped<QuestionBankService>();
 
 // ========================
 // JWT Authentication
@@ -128,6 +133,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

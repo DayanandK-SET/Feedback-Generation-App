@@ -6,5 +6,7 @@
         public Survey? Survey { get; set; }
 
         public ICollection<Answer>? Answers { get; set; }
+
+        public string? ResponseToken { get; set; }
     }
 }

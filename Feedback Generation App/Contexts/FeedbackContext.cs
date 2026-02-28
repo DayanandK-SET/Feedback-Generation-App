@@ -19,6 +19,9 @@ namespace Feedback_Generation_App.Contexts
         public DbSet<Response> Responses => Set<Response>();
         public DbSet<Answer> Answers => Set<Answer>();
 
+        public DbSet<QuestionBank> QuestionBanks => Set<QuestionBank>();
+        public DbSet<QuestionBankOption> QuestionBankOptions => Set<QuestionBankOption>();
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -83,6 +86,35 @@ namespace Feedback_Generation_App.Contexts
             modelBuilder.Entity<Survey>()
                 .HasIndex(s => s.PublicIdentifier)
                 .IsUnique();
+
+            // ============================================
+            // Answer → SelectedOption (Many-to-One)
+            // ============================================
+            modelBuilder.Entity<Answer>()
+                .HasOne(a => a.SelectedOption)
+                .WithMany()
+                .HasForeignKey(a => a.SelectedOptionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+
+            // QuestionBank → Options
+            modelBuilder.Entity<QuestionBank>()
+                .HasMany(q => q.Options)
+                .WithOne(o => o.QuestionBank)
+                .HasForeignKey(o => o.QuestionBankId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // User → QuestionBank
+            modelBuilder.Entity<User>()
+                .HasMany<QuestionBank>()
+                .WithOne(q => q.CreatedBy)
+                .HasForeignKey(q => q.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
+
+
+
         }
     }
 }
