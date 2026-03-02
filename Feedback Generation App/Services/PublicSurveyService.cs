@@ -1,4 +1,5 @@
 ﻿using Feedback_Generation_App.Contexts;
+using Feedback_Generation_App.Exceptions;
 using Feedback_Generation_App.Interfaces;
 using Feedback_Generation_App.Models;
 using Feedback_Generation_App.Models.DTOs;
@@ -56,7 +57,7 @@ namespace Feedback_Generation_App.Services
                     !s.IsDeleted);
 
             if (survey == null)
-                throw new Exception("Survey not available");
+                throw new BadRequestException("Survey not available");
 
             if (string.IsNullOrWhiteSpace(dto.ResponseToken))
                 throw new ArgumentException("Response token is required.");

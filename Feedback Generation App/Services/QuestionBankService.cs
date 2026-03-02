@@ -1,4 +1,5 @@
 ﻿using Feedback_Generation_App.Contexts;
+using Feedback_Generation_App.Exceptions;
 using Feedback_Generation_App.Models;
 using Feedback_Generation_App.Models.DTOs;
 using Microsoft.EntityFrameworkCore;
@@ -14,28 +15,44 @@ namespace Feedback_Generation_App.Services
             _context = context;
         }
 
-        public async Task<int> CreateQuestionAsync(CreateQuestionBankDto dto, int userId)
+        public async Task<List<int>> CreateQuestionsAsync(
+            List<CreateQuestionBankDto> dtos,
+            int userId)
         {
-            var question = new QuestionBank
-            {
-                Text = dto.Text,
-                QuestionType = dto.QuestionType,
-                CreatedById = userId
-            };
+            if (dtos == null || !dtos.Any())
+                throw new BadRequestException("At least one question is required.");
 
-            if (dto.Options != null && dto.Options.Any())
+            var questions = new List<QuestionBank>();
+
+            foreach (var dto in dtos)
             {
-                question.Options = dto.Options
-                    .Select(o => new QuestionBankOption
-                    {
-                        OptionText = o
-                    }).ToList();
+                if (string.IsNullOrWhiteSpace(dto.Text))
+                    throw new BadRequestException("Question text is required.");
+
+                var question = new QuestionBank
+                {
+                    Text = dto.Text,
+                    QuestionType = dto.QuestionType,
+                    CreatedById = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                if (dto.Options != null && dto.Options.Any())
+                {
+                    question.Options = dto.Options
+                        .Select(o => new QuestionBankOption
+                        {
+                            OptionText = o
+                        }).ToList();
+                }
+
+                questions.Add(question);
             }
 
-            _context.QuestionBanks.Add(question);
+            _context.QuestionBanks.AddRange(questions);
             await _context.SaveChangesAsync();
 
-            return question.Id;
+            return questions.Select(q => q.Id).ToList();
         }
 
         public async Task<QuestionBankPagedResponseDto>

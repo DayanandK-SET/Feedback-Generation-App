@@ -20,18 +20,20 @@ namespace Feedback_Generation_App.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateQuestion(CreateQuestionBankDto dto)
+        public async Task<IActionResult> CreateQuestions(
+            List<CreateQuestionBankDto> dtos)
         {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            var userId = int.Parse(
+                User.FindFirst(ClaimTypes.NameIdentifier)!.Value
+            );
 
-            if (userIdClaim == null)
-                return Unauthorized("Invalid token");
+            var ids = await _service.CreateQuestionsAsync(dtos, userId);
 
-            var userId = int.Parse(userIdClaim.Value);
-
-            var questionId = await _service.CreateQuestionAsync(dto, userId);
-
-            return Ok(new { QuestionId = questionId });
+            return Ok(new
+            {
+                Message = "Questions created successfully",
+                QuestionIds = ids
+            });
         }
 
         [HttpGet("my-questions")]
