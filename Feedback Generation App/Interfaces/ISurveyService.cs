@@ -18,6 +18,12 @@ namespace Feedback_Generation_App.Interfaces
 
         Task<SurveyAnalyticsDto> GetSurveyAnalyticsAsync(int surveyId, int userId);
 
+        Task<byte[]> ExportResponsesToExcelAsync(int surveyId, int userId);
+
+
+        Task<string> ImportSurveyFromExcelAsync(ImportSurveyExcelDto dto, int creatorId);
+
+        Task<List<ResponseTrendDto>> GetSurveyResponseTrendAsync(int surveyId, int userId);
 
     }
 }

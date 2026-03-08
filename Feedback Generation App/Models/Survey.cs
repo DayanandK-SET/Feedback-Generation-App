@@ -14,6 +14,12 @@
         public int CreatedById { get; set; }
         public User? CreatedBy { get; set; }
 
+
+        // 🆕 Survey expiry time
+        public DateTime? ExpireAt { get; set; }
+
+        public int? MaxResponses { get; set; }
+
         // Navigation
         public ICollection<Question>? Questions { get; set; }
         public ICollection<Response>? Responses { get; set; }

@@ -1,6 +1,7 @@
-using Feedback_Generation_App.Middlewares;
 using Feedback_Generation_App.Contexts;
 using Feedback_Generation_App.Interfaces;
+using Feedback_Generation_App.Middlewares;
+using Feedback_Generation_App.Models;
 using Feedback_Generation_App.Repositories;
 using Feedback_Generation_App.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -91,7 +92,7 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPublicSurveyService, PublicSurveyService>();
 builder.Services.AddScoped<QuestionBankService>();
-
+builder.Services.AddHttpContextAccessor();
 // ========================
 // JWT Authentication
 // ========================
@@ -114,6 +115,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
+
+
 builder.Services.AddAuthorization();
 
 // ========================
@@ -135,6 +138,31 @@ if (app.Environment.IsDevelopment())
 app.UseCors();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<FeedbackContext>();
+    var passwordService = services.GetRequiredService<IPasswordService>();
+
+    if (!context.Users.Any(u => u.Role == "Admin"))
+    {
+        var hashedPassword = passwordService
+            .HashPassword("Admin@123", null, out byte[] hashKey);
+
+        var adminUser = new User
+        {
+            Username = "admin",
+            Email = "admin@system.com",
+            Password = hashedPassword,
+            PasswordHash = hashKey,
+            Role = "Admin"
+        };
+
+        context.Users.Add(adminUser);
+        context.SaveChanges();
+    }
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

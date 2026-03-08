@@ -1,5 +1,4 @@
-﻿using Feedback_Generation_App.Models;
-using Feedback_Generation_App.Models.DTOs;
+﻿using Feedback_Generation_App.Models.DTOs;
 using Feedback_Generation_App.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,7 +8,7 @@ namespace Feedback_Generation_App.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Creator")]
+    [Authorize(Roles = "Creator,Admin")]
     public class QuestionBankController : ControllerBase
     {
         private readonly QuestionBankService _service;
@@ -20,8 +19,7 @@ namespace Feedback_Generation_App.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateQuestions(
-            List<CreateQuestionBankDto> dtos)
+        public async Task<IActionResult> CreateQuestions(List<CreateQuestionBankDto> dtos)
         {
             var userId = int.Parse(
                 User.FindFirst(ClaimTypes.NameIdentifier)!.Value
@@ -47,7 +45,9 @@ namespace Feedback_Generation_App.Controllers
 
             var userId = int.Parse(userIdClaim.Value);
 
-            var result = await _service.GetMyQuestionsAsync(userId, request);
+            var isAdmin = User.IsInRole("Admin");
+
+            var result = await _service.GetMyQuestionsAsync(userId, isAdmin, request);
 
             return Ok(result);
         }

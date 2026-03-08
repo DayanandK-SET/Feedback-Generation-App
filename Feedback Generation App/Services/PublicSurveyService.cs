@@ -29,6 +29,10 @@ namespace Feedback_Generation_App.Services
             if (survey == null)
                 return null;
 
+            // NEW EXPIRY CHECK
+            if (survey.ExpireAt.HasValue && survey.ExpireAt.Value < DateTime.UtcNow)
+                throw new BadRequestException("This survey has expired");
+
             return new PublicSurveyDto
             {
                 Title = survey.Title,
@@ -59,10 +63,24 @@ namespace Feedback_Generation_App.Services
             if (survey == null)
                 throw new BadRequestException("Survey not available");
 
+            // RESPONSE LIMIT CHECK
+            if (survey.MaxResponses.HasValue)
+            {
+                var responseCount = await _context.Responses
+                    .CountAsync(r => r.SurveyId == survey.Id && !r.IsDeleted);
+
+                if (responseCount >= survey.MaxResponses.Value)
+                    throw new BadRequestException("Survey response limit reached");
+            }
+
+            // NEW EXPIRY CHECK
+            if (survey.ExpireAt.HasValue && survey.ExpireAt.Value < DateTime.UtcNow)
+                throw new BadRequestException("This survey has expired");
+
             if (string.IsNullOrWhiteSpace(dto.ResponseToken))
                 throw new ArgumentException("Response token is required.");
 
-            // 🔐 Duplicate Protection
+            // Duplicate Protection
             var existingResponse = await _context.Responses
                 .FirstOrDefaultAsync(r =>
                     r.SurveyId == survey.Id &&

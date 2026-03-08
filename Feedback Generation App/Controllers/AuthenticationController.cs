@@ -40,7 +40,8 @@ namespace Feedback_Generation_App.Controllers
             try
             {
                 await _userService.RegisterUser(request);
-                return Ok("User registered successfully");
+                //return Ok("User registered successfully");
+                return Ok(new { message = "User registered successfully" });
             }
             catch (Exception ex)
             {

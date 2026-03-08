@@ -6,5 +6,8 @@
         public int PageSize { get; set; } = 10;
 
         public QuestionType? QuestionType { get; set; }
+
+        public DateTime? FromDate { get; set; }
+        public DateTime? ToDate { get; set; }
     }
 }

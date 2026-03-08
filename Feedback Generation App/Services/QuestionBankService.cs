@@ -56,7 +56,7 @@ namespace Feedback_Generation_App.Services
         }
 
         public async Task<QuestionBankPagedResponseDto>
-            GetMyQuestionsAsync(int userId, GetQuestionBankRequestDto request)
+            GetMyQuestionsAsync(int userId, bool isAdmin, GetQuestionBankRequestDto request)
         {
             if (request.PageNumber < 1)
                 request.PageNumber = 1;
@@ -65,11 +65,15 @@ namespace Feedback_Generation_App.Services
                 request.PageSize = 10;
 
             var query = _context.QuestionBanks
-                .Where(q => q.CreatedById == userId && !q.IsDeleted)
+                .Where(q => !q.IsDeleted)
                 .Include(q => q.Options)
                 .AsQueryable();
 
-            // Apply filtering
+            if (!isAdmin)
+            {
+                query = query.Where(q => q.CreatedById == userId);
+            }
+
             if (request.QuestionType.HasValue)
             {
                 query = query.Where(q =>

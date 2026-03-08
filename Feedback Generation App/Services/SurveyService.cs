@@ -1,8 +1,10 @@
-﻿using Feedback_Generation_App.Contexts;
+﻿using ClosedXML.Excel;
+using Feedback_Generation_App.Contexts;
 using Feedback_Generation_App.Exceptions;
 using Feedback_Generation_App.Interfaces;
 using Feedback_Generation_App.Models;
 using Feedback_Generation_App.Models.DTOs;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace Feedback_Generation_App.Services
@@ -10,10 +12,20 @@ namespace Feedback_Generation_App.Services
     public class SurveyService : ISurveyService
     {
         private readonly FeedbackContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public SurveyService(FeedbackContext context)
+        public SurveyService(
+            FeedbackContext context,
+            IHttpContextAccessor httpContextAccessor)
         {
             _context = context;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private bool IsAdmin()
+        {
+            return _httpContextAccessor.HttpContext?.User
+                .IsInRole("Admin") ?? false;
         }
 
         public async Task<string> CreateSurvey(CreateSurveyDto dto, int creatorId)
@@ -23,7 +35,9 @@ namespace Feedback_Generation_App.Services
                 Title = dto.Title,
                 Description = dto.Description,
                 CreatedById = creatorId,
-                IsActive = true
+                IsActive = true,
+                ExpireAt = dto.ExpireAt,
+                MaxResponses = dto.MaxResponses
             };
 
             survey.Questions = new List<Question>();
@@ -32,18 +46,16 @@ namespace Feedback_Generation_App.Services
             {
                 Question question;
 
-                // 🔹 CASE 1: Using QuestionBank
                 if (questionDto.QuestionBankId.HasValue)
                 {
                     var bankQuestion = await _context.QuestionBanks
                         .Include(q => q.Options)
                         .FirstOrDefaultAsync(q =>
                             q.Id == questionDto.QuestionBankId.Value &&
-                            q.CreatedById == creatorId &&
                             !q.IsDeleted);
 
                     if (bankQuestion == null)
-                        throw new BadRequestException($"QuestionBank with Id {questionDto.QuestionBankId} not found");
+                        throw new BadRequestException("QuestionBank not found");
 
                     question = new Question
                     {
@@ -56,29 +68,22 @@ namespace Feedback_Generation_App.Services
                             }).ToList()
                     };
                 }
-                // 🔹 CASE 2: Manual question (Old functionality)
                 else
                 {
                     if (string.IsNullOrWhiteSpace(questionDto.Text) ||
                         !questionDto.QuestionType.HasValue)
-                    {
-                        throw new BadRequestException("Text and QuestionType are required when not using QuestionBankId");
-                    }
+                        throw new BadRequestException("Invalid question");
 
                     question = new Question
                     {
                         Text = questionDto.Text,
-                        QuestionType = questionDto.QuestionType.Value
-                    };
-
-                    if (questionDto.Options != null && questionDto.Options.Any())
-                    {
-                        question.Options = questionDto.Options
+                        QuestionType = questionDto.QuestionType.Value,
+                        Options = questionDto.Options?
                             .Select(o => new QuestionOption
                             {
                                 OptionText = o
-                            }).ToList();
-                    }
+                            }).ToList()
+                    };
                 }
 
                 survey.Questions.Add(question);
@@ -90,7 +95,6 @@ namespace Feedback_Generation_App.Services
             return survey.PublicIdentifier;
         }
 
-        // ✅ PAGINATION ADDED HERE
         public async Task<SurveyResponsesDto> GetSurveyResponsesAsync(
             int surveyId,
             int userId,
@@ -108,64 +112,54 @@ namespace Feedback_Generation_App.Services
             if (survey == null)
                 throw new NotFoundException("Survey not found");
 
-            if (survey.CreatedById != userId)
+            if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
-            // Safety defaults
-            if (request.PageNumber < 1)
-                request.PageNumber = 1;
+            if (request.PageNumber < 1) request.PageNumber = 1;
+            if (request.PageSize < 1) request.PageSize = 10;
 
-            if (request.PageSize < 1)
-                request.PageSize = 10;
-
-            var allResponses = survey.Responses?
+            var responsesQuery = survey.Responses?
                 .Where(r => !r.IsDeleted)
-                .OrderByDescending(r => r.CreatedAt)
-                .ToList() ?? new List<Response>();
+                .AsQueryable() ?? new List<Response>().AsQueryable();
 
-            // ✅ Apply QuestionType filter if provided
-            if (request.QuestionType.HasValue)
-            {
-                foreach (var response in allResponses)
-                {
-                    response.Answers = response.Answers?
-                        .Where(a => a.Question != null &&
-                                    a.Question.QuestionType == request.QuestionType.Value)
-                        .ToList();
-                }
+            // ✅ DATE FILTER (Now works for Admin too)
+            if (request.FromDate.HasValue)
+                responsesQuery = responsesQuery
+                    .Where(r => r.CreatedAt >= request.FromDate.Value);
 
-                // Remove responses that no longer have answers after filtering
-                allResponses = allResponses
-                    .Where(r => r.Answers != null && r.Answers.Any())
-                    .ToList();
-            }
+            if (request.ToDate.HasValue)
+                responsesQuery = responsesQuery
+                    .Where(r => r.CreatedAt <= request.ToDate.Value);
 
-            var paginatedResponses = allResponses
+            responsesQuery = responsesQuery
+                .OrderByDescending(r => r.CreatedAt);
+
+            var totalCount = responsesQuery.Count();
+
+            var paginated = responsesQuery
                 .Skip((request.PageNumber - 1) * request.PageSize)
                 .Take(request.PageSize)
                 .ToList();
 
-            var result = new SurveyResponsesDto
+            return new SurveyResponsesDto
             {
                 SurveyId = survey.Id,
                 Title = survey.Title,
-                TotalResponses = allResponses.Count, // FULL count (not paginated)
-                Responses = paginatedResponses.Select(r => new ResponseDto
+                TotalResponses = totalCount,
+                Responses = paginated.Select(r => new ResponseDto
                 {
                     ResponseId = r.Id,
                     SubmittedAt = r.CreatedAt,
                     Answers = r.Answers?.Select(a => new AnswerDto
                     {
                         QuestionId = a.QuestionId,
-                        QuestionText = a.Question?.Text ?? string.Empty,
+                        QuestionText = a.Question?.Text ?? "",
                         Answer = a.SelectedOption != null
                             ? a.SelectedOption.OptionText
-                            : a.AnswerText ?? string.Empty
+                            : a.AnswerText ?? ""
                     }).ToList()
                 }).ToList()
             };
-
-            return result;
         }
 
         public async Task DeleteSurveyAsync(int surveyId, int userId)
@@ -176,11 +170,10 @@ namespace Feedback_Generation_App.Services
             if (survey == null)
                 throw new NotFoundException("Survey not found");
 
-            if (survey.CreatedById != userId)
+            if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
             survey.IsDeleted = true;
-
             await _context.SaveChangesAsync();
         }
 
@@ -192,11 +185,10 @@ namespace Feedback_Generation_App.Services
             if (survey == null)
                 throw new NotFoundException("Survey not found");
 
-            if (survey.CreatedById != userId)
+            if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
             survey.IsActive = !survey.IsActive;
-
             await _context.SaveChangesAsync();
         }
 
@@ -208,7 +200,7 @@ namespace Feedback_Generation_App.Services
             if (survey == null)
                 throw new NotFoundException("Survey not found");
 
-            if (survey.CreatedById != userId)
+            if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
             survey.Title = dto.Title;
@@ -220,8 +212,11 @@ namespace Feedback_Generation_App.Services
 
         public async Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId)
         {
+            var isAdmin = IsAdmin();
+
             var surveys = await _context.Surveys
-                .Where(s => s.CreatedById == userId && !s.IsDeleted)
+                .Where(s => !s.IsDeleted &&
+                           (isAdmin || s.CreatedById == userId))
                 .Include(s => s.Responses)
                 .OrderByDescending(s => s.CreatedAt)
                 .Select(s => new CreatorSurveyListDto
@@ -241,77 +236,268 @@ namespace Feedback_Generation_App.Services
 
         public async Task<SurveyAnalyticsDto> GetSurveyAnalyticsAsync(int surveyId, int userId)
         {
+            try
+            {
+                var survey = await _context.Surveys
+                    .Include(s => s.Responses)
+                    .Include(s => s.Questions)
+                        .ThenInclude(q => q.Options)
+                    .Include(s => s.Questions)
+                        .ThenInclude(q => q.Answers)
+                            .ThenInclude(a => a.SelectedOption)
+                    .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
+
+                if (survey == null)
+                    throw new NotFoundException("Survey not found");
+
+                if (!IsAdmin() && survey.CreatedById != userId)
+                    throw new ForbiddenException("You do not own this survey");
+
+                var analytics = new SurveyAnalyticsDto
+                {
+                    SurveyId = survey.Id,
+                    Title = survey.Title,
+                    TotalResponses = survey.Responses?.Count ?? 0
+                };
+
+                foreach (var question in survey.Questions ?? new List<Question>())
+                {
+                    var questionDto = new QuestionAnalyticsDto
+                    {
+                        QuestionId = question.Id,
+                        QuestionText = question.Text,
+                        QuestionType = question.QuestionType
+                    };
+
+                    var answers = question.Answers?
+                        .Where(a => !a.IsDeleted)
+                        .ToList() ?? new List<Answer>();
+
+                    if (question.QuestionType == QuestionType.MultipleChoice)
+                    {
+                        questionDto.Options = question.Options?
+                            .Select(o => new OptionAnalyticsDto
+                            {
+                                OptionText = o.OptionText,
+                                Count = answers.Count(a => a.SelectedOptionId == o.Id)
+                            })
+                            .ToList();
+                    }
+
+                    else if (question.QuestionType == QuestionType.Rating)
+                    {
+                        var ratings = answers
+                            .Select(a =>
+                            {
+                                int value;
+                                return int.TryParse(a.AnswerText, out value) ? (int?)value : null;
+                            })
+                            .Where(v => v.HasValue)
+                            .Select(v => v!.Value)
+                            .ToList();
+
+                        if (ratings.Any())
+                        {
+                            questionDto.AverageRating = Math.Round(ratings.Average(), 2);
+                            questionDto.MinRating = ratings.Min();
+                            questionDto.MaxRating = ratings.Max();
+                        }
+                    }
+
+                    else if (question.QuestionType == QuestionType.Text)
+                    {
+                        questionDto.TextAnswers = answers
+                            .Where(a => !string.IsNullOrEmpty(a.AnswerText))
+                            .Select(a => a.AnswerText!)
+                            .ToList();
+                    }
+
+                    analytics.Questions.Add(questionDto);
+                }
+
+                return analytics;
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException("Analytics error: " + ex.Message);
+            }
+        }
+
+
+        public async Task<byte[]> ExportResponsesToExcelAsync(int surveyId, int userId)
+        {
             var survey = await _context.Surveys
                 .Include(s => s.Responses)
-                .Include(s => s.Questions)
-                    .ThenInclude(q => q.Options)
-                .Include(s => s.Questions)
-                    .ThenInclude(q => q.Answers)
+                    .ThenInclude(r => r.Answers)
+                        .ThenInclude(a => a.Question)
+                .Include(s => s.Responses)
+                    .ThenInclude(r => r.Answers)
                         .ThenInclude(a => a.SelectedOption)
                 .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
 
             if (survey == null)
                 throw new NotFoundException("Survey not found");
 
-            if (survey.CreatedById != userId)
+            if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
-            var analytics = new SurveyAnalyticsDto
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Responses");
+
+            worksheet.Cell(1, 1).Value = "ResponseId";
+            worksheet.Cell(1, 2).Value = "SubmittedAt";
+            worksheet.Cell(1, 3).Value = "Question";
+            worksheet.Cell(1, 4).Value = "Answer";
+
+            int row = 2;
+
+            foreach (var response in survey.Responses!)
             {
-                SurveyId = survey.Id,
-                Title = survey.Title,
-                TotalResponses = survey.Responses?.Count ?? 0
-            };
-
-            foreach (var question in survey.Questions!)
-            {
-                var questionDto = new QuestionAnalyticsDto
+                foreach (var answer in response.Answers!)
                 {
-                    QuestionId = question.Id,
-                    QuestionText = question.Text,
-                    QuestionType = question.QuestionType
-                };
+                    worksheet.Cell(row, 1).Value = response.Id;
+                    worksheet.Cell(row, 2).Value = response.CreatedAt;
+                    worksheet.Cell(row, 3).Value = answer.Question?.Text;
 
-                var answers = question.Answers?.Where(a => !a.IsDeleted).ToList() ?? new List<Answer>();
+                    var answerText = answer.SelectedOption != null
+                        ? answer.SelectedOption.OptionText
+                        : answer.AnswerText;
 
-                if (question.QuestionType == QuestionType.MultipleChoice)
-                {
-                    questionDto.Options = question.Options!
-                        .Select(o => new OptionAnalyticsDto
-                        {
-                            OptionText = o.OptionText,
-                            Count = answers.Count(a => a.SelectedOptionId == o.Id)
-                        })
-                        .ToList();
+                    worksheet.Cell(row, 4).Value = answerText;
+
+                    row++;
                 }
-                else if (question.QuestionType == QuestionType.Rating)
-                {
-                    var ratings = answers
-                        .Where(a => !string.IsNullOrEmpty(a.AnswerText))
-                        .Select(a => int.Parse(a.AnswerText!))
-                        .ToList();
-
-                    if (ratings.Any())
-                    {
-                        questionDto.AverageRating = ratings.Average();
-                        questionDto.MinRating = ratings.Min();
-                        questionDto.MaxRating = ratings.Max();
-                    }
-                }
-                else if (question.QuestionType == QuestionType.Text)
-                {
-                    questionDto.TextAnswers = answers
-                        .Where(a => !string.IsNullOrEmpty(a.AnswerText))
-                        .Select(a => a.AnswerText!)
-                        .ToList();
-                }
-
-                analytics.Questions.Add(questionDto);
             }
 
-            return analytics;
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return stream.ToArray();
         }
 
 
+        public async Task<string> ImportSurveyFromExcelAsync(
+            ImportSurveyExcelDto dto,
+            int creatorId)
+        {
+            if (dto.File == null || dto.File.Length == 0)
+                throw new BadRequestException("Excel file is required");
+
+            var survey = new Survey
+            {
+                Title = dto.Title,
+                Description = dto.Description,
+                CreatedById = creatorId,
+                IsActive = true,
+                Questions = new List<Question>()
+            };
+
+            using var stream = new MemoryStream();
+            await dto.File.CopyToAsync(stream);
+
+            // IMPORTANT: Reset stream position
+            stream.Position = 0;
+
+            using var workbook = new XLWorkbook(stream);
+            var worksheet = workbook.Worksheet(1);
+
+            var rows = worksheet.RowsUsed().Skip(1);
+
+            foreach (var row in rows)
+            {
+                var questionText = row.Cell(1).GetString();
+                var questionTypeString = row.Cell(2).GetString();
+
+                if (string.IsNullOrWhiteSpace(questionText))
+                    continue;
+
+                // Normalize question type (handles "Multiple Choice", spaces, etc.)
+                var normalizedType = questionTypeString
+                                        .Replace(" ", "")
+                                        .Trim();
+
+                if (!Enum.TryParse<QuestionType>(
+                        normalizedType,
+                        true,
+                        out var questionType))
+                {
+                    throw new BadRequestException(
+                        $"Invalid QuestionType: {questionTypeString}");
+                }
+
+                var question = new Question
+                {
+                    Text = questionText,
+                    QuestionType = questionType,
+                    Options = new List<QuestionOption>()
+                };
+
+                // Handle MultipleChoice options dynamically
+                if (questionType == QuestionType.MultipleChoice)
+                {
+                    int lastColumn = row.LastCellUsed().Address.ColumnNumber;
+
+                    for (int i = 3; i <= lastColumn; i++)
+                    {
+                        var option = row.Cell(i).GetString();
+
+                        if (!string.IsNullOrWhiteSpace(option))
+                        {
+                            question.Options.Add(new QuestionOption
+                            {
+                                OptionText = option
+                            });
+                        }
+                    }
+
+                    // Ensure MultipleChoice has options
+                    if (!question.Options.Any())
+                    {
+                        throw new BadRequestException(
+                            $"MultipleChoice question '{questionText}' must have options.");
+                    }
+                }
+
+                survey.Questions.Add(question);
+            }
+
+            _context.Surveys.Add(survey);
+            await _context.SaveChangesAsync();
+
+            return survey.PublicIdentifier;
+        }
+
+
+        public async Task<List<ResponseTrendDto>> GetSurveyResponseTrendAsync(int surveyId, int userId)
+        {
+            var survey = await _context.Surveys
+                .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
+
+            if (survey == null)
+                throw new NotFoundException("Survey not found");
+
+            if (!IsAdmin() && survey.CreatedById != userId)
+                throw new ForbiddenException("You do not own this survey");
+
+            var trend = await _context.Responses
+                .Where(r => r.SurveyId == surveyId && !r.IsDeleted)
+                .Select(r => new
+                {
+                    Date = r.CreatedAt.ToString("yyyy-MM-dd")
+                })
+                .ToListAsync();
+
+            var result = trend
+                .GroupBy(x => x.Date)
+                .Select(g => new ResponseTrendDto
+                {
+                    Date = g.Key,
+                    Count = g.Count()
+                })
+                .OrderBy(x => x.Date)
+                .ToList();
+
+            return result;
+        }
     }
 }
