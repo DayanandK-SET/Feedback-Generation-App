@@ -1,6 +1,8 @@
 @Feedback_Generation_App_HostAddress = http://localhost:5215
 
-GET {{Feedback_Generation_App_HostAddress}}/weatherforecast/
+GET {{Feedback_Generation_App_HostAddress}}//
 Accept: application/json
 
 ###
+
+

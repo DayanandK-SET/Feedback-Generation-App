@@ -104,22 +104,31 @@ public class SurveyController : ControllerBase
     }
 
 
+    //[Authorize(Roles = "Creator,Admin")]
+    //[HttpGet("my-surveys")]
+    //public async Task<IActionResult> GetMySurveys()
+    //{
+    //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+    //    //if (userIdClaim == null)
+    //    //    return Unauthorized("Invalid token");
+
+    //    var userId = int.Parse(userIdClaim.Value);
+
+    //    var surveys = await _surveyService.GetCreatorSurveysAsync(userId);
+
+    //    return Ok(surveys);
+    //}
     [Authorize(Roles = "Creator,Admin")]
-    [HttpGet("my-surveys")]
-    public async Task<IActionResult> GetMySurveys()
+    [HttpPost("my-surveys/search")]
+    public async Task<IActionResult> GetMySurveys(
+    [FromBody] GetMySurveysRequestDto request)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-        //if (userIdClaim == null)
-        //    return Unauthorized("Invalid token");
-
-        var userId = int.Parse(userIdClaim.Value);
-
-        var surveys = await _surveyService.GetCreatorSurveysAsync(userId);
-
-        return Ok(surveys);
+        var userId = int.Parse(userIdClaim!.Value);
+        var result = await _surveyService.GetCreatorSurveysAsync(userId, request);
+        return Ok(result);
     }
-
 
 
     [Authorize(Roles = "Creator,Admin")]

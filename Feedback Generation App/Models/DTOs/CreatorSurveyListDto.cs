@@ -8,6 +8,8 @@
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public int TotalResponses { get; set; }
+
+
         public string PublicIdentifier { get; set; } = string.Empty;
     }
 }

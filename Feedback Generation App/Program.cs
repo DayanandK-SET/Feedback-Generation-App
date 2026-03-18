@@ -10,8 +10,8 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
-
 var builder = WebApplication.CreateBuilder(args);
+
 // ========================
 // Add Services
 // ========================
@@ -28,7 +28,6 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1"
     });
 
-    // JWT Authentication in Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -79,12 +78,13 @@ builder.Services.AddCors(options =>
     });
 });
 
-
-
-
 // ========================
 // Dependency Injection
 // ========================
+
+// 🔥 ADD THIS LINE (FIX)
+builder.Services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
+
 
 builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
@@ -93,6 +93,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPublicSurveyService, PublicSurveyService>();
 builder.Services.AddScoped<QuestionBankService>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<IAdminService, AdminService>();
+
 // ========================
 // JWT Authentication
 // ========================
@@ -114,8 +116,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             )
         };
     });
-
-
 
 builder.Services.AddAuthorization();
 

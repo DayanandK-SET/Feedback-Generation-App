@@ -1,4 +1,6 @@
 ﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.Drawing;
+using DocumentFormat.OpenXml.InkML;
 using Feedback_Generation_App.Contexts;
 using Feedback_Generation_App.Exceptions;
 using Feedback_Generation_App.Interfaces;
@@ -11,15 +13,25 @@ namespace Feedback_Generation_App.Services
 {
     public class SurveyService : ISurveyService
     {
-        private readonly FeedbackContext _context;
+        private readonly IRepository<int, Survey> _surveyRepository;
+        private readonly IRepository<int, QuestionBank> _bankRepository;
+        private readonly IRepository<int, Response> _responsesRepository;
+
+        //private readonly FeedbackContext _context;
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public SurveyService(
-            FeedbackContext context,
-            IHttpContextAccessor httpContextAccessor)
+            //FeedbackContext context,
+            IHttpContextAccessor httpContextAccessor,
+            IRepository<int, Survey> surveyRepository,
+            IRepository<int, QuestionBank> bankRepository,
+            IRepository<int, Response> responsesRepository)
         {
-            _context = context;
+            //_context = context;
             _httpContextAccessor = httpContextAccessor;
+            _surveyRepository = surveyRepository;
+            _bankRepository = bankRepository;
+            _responsesRepository = responsesRepository;
         }
 
         private bool IsAdmin()
@@ -48,7 +60,8 @@ namespace Feedback_Generation_App.Services
 
                 if (questionDto.QuestionBankId.HasValue)
                 {
-                    var bankQuestion = await _context.QuestionBanks
+                    //var bankQuestion = await _context.QuestionBanks
+                    var bankQuestion = await _bankRepository.GetQueryable()
                         .Include(q => q.Options)
                         .FirstOrDefaultAsync(q =>
                             q.Id == questionDto.QuestionBankId.Value &&
@@ -89,8 +102,9 @@ namespace Feedback_Generation_App.Services
                 survey.Questions.Add(question);
             }
 
-            _context.Surveys.Add(survey);
-            await _context.SaveChangesAsync();
+            //_context.Surveys.Add(survey);
+            await _surveyRepository.AddAsync(survey);
+            //await _context.SaveChangesAsync();
 
             return survey.PublicIdentifier;
         }
@@ -100,7 +114,8 @@ namespace Feedback_Generation_App.Services
             int userId,
             GetSurveyResponsesRequestDto request)
         {
-            var survey = await _context.Surveys
+            //var survey = await _context.Surveys
+            var survey = await _surveyRepository.GetQueryable()
                 .Include(s => s.Responses)
                     .ThenInclude(r => r.Answers)
                         .ThenInclude(a => a.Question)
@@ -118,9 +133,12 @@ namespace Feedback_Generation_App.Services
             if (request.PageNumber < 1) request.PageNumber = 1;
             if (request.PageSize < 1) request.PageSize = 10;
 
+
+            // The below line is for making Queryable
+
             var responsesQuery = survey.Responses?
                 .Where(r => !r.IsDeleted)
-                .AsQueryable() ?? new List<Response>().AsQueryable();
+                .AsQueryable() ?? new List<Response>().AsQueryable();  //AsQueryable()
 
             // ✅ DATE FILTER (Now works for Admin too)
             if (request.FromDate.HasValue)
@@ -164,7 +182,8 @@ namespace Feedback_Generation_App.Services
 
         public async Task DeleteSurveyAsync(int surveyId, int userId)
         {
-            var survey = await _context.Surveys
+            //var survey = await _context.Surveys
+            var survey = await _surveyRepository.GetQueryable()
                 .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
 
             if (survey == null)
@@ -174,12 +193,15 @@ namespace Feedback_Generation_App.Services
                 throw new ForbiddenException("You do not own this survey");
 
             survey.IsDeleted = true;
-            await _context.SaveChangesAsync();
+            //await _context.SaveChangesAsync();
+
+            await _surveyRepository.UpdateAsync(surveyId, survey);
         }
 
         public async Task ToggleSurveyStatusAsync(int surveyId, int userId)
         {
-            var survey = await _context.Surveys
+            //var survey = await _context.Surveys
+            var survey = await _surveyRepository.GetQueryable()
                 .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
 
             if (survey == null)
@@ -189,12 +211,17 @@ namespace Feedback_Generation_App.Services
                 throw new ForbiddenException("You do not own this survey");
 
             survey.IsActive = !survey.IsActive;
-            await _context.SaveChangesAsync();
+            //await _context.SaveChangesAsync();
+
+            await _surveyRepository.UpdateAsync(survey.Id, survey);
+
+
         }
 
         public async Task UpdateSurveyAsync(int surveyId, int userId, UpdateSurveyDto dto)
         {
-            var survey = await _context.Surveys
+            //var survey = await _context.Surveys
+            var survey = await _surveyRepository.GetQueryable()
                 .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
 
             if (survey == null)
@@ -203,42 +230,252 @@ namespace Feedback_Generation_App.Services
             if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                throw new BadRequestException("Title is required");
+
             survey.Title = dto.Title;
             survey.Description = dto.Description;
             survey.UpdatedAt = DateTime.UtcNow;
 
-            await _context.SaveChangesAsync();
+            //await _context.SaveChangesAsync();
+            await _surveyRepository.UpdateAsync(surveyId, survey);
         }
 
-        public async Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId)
-        {
-            var isAdmin = IsAdmin();
+        //public async Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId)
+        //{
+        //    var isAdmin = IsAdmin();
 
-            var surveys = await _context.Surveys
-                .Where(s => !s.IsDeleted &&
-                           (isAdmin || s.CreatedById == userId))
+        //    var surveys = await _context.Surveys
+        //        .Where(s => !s.IsDeleted &&
+        //                   (isAdmin || s.CreatedById == userId))
+        //        .Include(s => s.Responses)
+        //        .OrderByDescending(s => s.CreatedAt)
+        //        .Select(s => new CreatorSurveyListDto
+        //        {
+        //            SurveyId = s.Id,
+        //            Title = s.Title,
+        //            Description = s.Description,
+        //            IsActive = s.IsActive,
+        //            CreatedAt = s.CreatedAt,
+        //            TotalResponses = s.Responses.Count,
+        //            PublicIdentifier = s.PublicIdentifier
+        //        })
+        //        .ToListAsync();
+
+        //    return surveys;
+        //}
+
+
+        //    public async Task<PagedSurveyResponseDto> GetCreatorSurveysAsync(
+        //int userId, GetMySurveysRequestDto request)
+        //    {
+
+
+
+
+
+
+        //        if (request.PageNumber < 1) request.PageNumber = 1;
+        //        if (request.PageSize < 1) request.PageSize = 10;
+
+        //        var now = DateTime.UtcNow;
+
+        //var query = _context.Surveys
+        //var query = _surveyRepository.GetQueryable()
+        //    .Where(s => s.CreatedById == userId && !s.IsDeleted)
+        //    .Include(s => s.Responses)
+        //    .AsQueryable();
+
+        // Date filters
+        //if (request.FromDate.HasValue)
+        //    query = query.Where(s => s.CreatedAt >= request.FromDate.Value);
+
+        //if (request.ToDate.HasValue)
+        //    query = query.Where(s => s.CreatedAt <= request.ToDate.Value);
+
+        // Active/Inactive filter
+        //if (request.IsActive.HasValue)
+        //    query = query.Where(s => s.IsActive == request.IsActive.Value);
+
+        //var totalCount = await query.CountAsync();
+
+        //var allSurveysForCount = await query
+        //    .Include(s => s.Responses)
+        //    .ToListAsync();
+
+        //int totalResponsesCount = allSurveysForCount.Sum(s => s.Responses?.Count(r => !r.IsDeleted) ?? 0);
+
+        //        int totalResponsesCount = await query
+        //.SelectMany(s => s.Responses)
+        //.CountAsync(r => !r.IsDeleted);
+
+        //        var surveys = await query
+        //            .OrderByDescending(s => s.CreatedAt)
+        //            .Skip((request.PageNumber - 1) * request.PageSize)
+        //            .Take(request.PageSize)
+        //            .ToListAsync();
+
+        // Auto-deactivate expired or limit-reached surveys
+        //foreach (var survey in surveys)
+        //{
+        //    bool shouldDeactivate = false;
+
+        //    if (survey.ExpireAt.HasValue && survey.ExpireAt.Value < now)
+        //        shouldDeactivate = true;
+
+        //    if (survey.MaxResponses.HasValue)
+        //    {
+        //        var count = survey.Responses?.Count(r => !r.IsDeleted) ?? 0;
+        //        if (count >= survey.MaxResponses.Value)
+        //            shouldDeactivate = true;
+        //    }
+
+        //    if (shouldDeactivate && survey.IsActive)
+        //        survey.IsActive = false;
+        //}
+
+        //await _context.SaveChangesAsync();
+        //await _surveyRepository.GetByIdAsync(surveyId);
+
+        //Include → load related data
+        //ThenInclude → load nested data
+        //SelectMany → flatten collections
+        //CountAsync → count in DB(efficient)
+
+        //    return new PagedSurveyResponseDto
+        //    {
+        //        TotalCount = totalCount,
+        //        PageNumber = request.PageNumber,
+        //        PageSize = request.PageSize,
+        //        TotalResponsesCount = totalResponsesCount,
+        //        Surveys = surveys.Select(s => new CreatorSurveyListDto
+        //        {
+        //            SurveyId = s.Id,
+        //            Title = s.Title,
+        //            Description = s.Description,
+        //            IsActive = s.IsActive,
+        //            CreatedAt = s.CreatedAt,
+        //            TotalResponses = s.Responses?.Count(r => !r.IsDeleted) ?? 0,
+        //            PublicIdentifier = s.PublicIdentifier
+        //        }).ToList()
+        //    };
+        //}
+
+        public async Task<PagedSurveyResponseDto> GetCreatorSurveysAsync(
+    int userId, GetMySurveysRequestDto request)
+        {
+            // ✅ Pagination validation
+            if (request.PageNumber < 1) request.PageNumber = 1;
+            if (request.PageSize < 1) request.PageSize = 10;
+
+            var now = DateTime.UtcNow;
+
+            // ✅ Base query (ONLY creator's surveys, exclude deleted)
+            var query = _surveyRepository.GetQueryable()
+                .Where(s => s.CreatedById == userId && !s.IsDeleted);
+
+            // ✅ Date filters
+            if (request.FromDate.HasValue)
+                query = query.Where(s => s.CreatedAt >= request.FromDate.Value);
+
+            if (request.ToDate.HasValue)
+                query = query.Where(s => s.CreatedAt <= request.ToDate.Value);
+
+            // ✅ Active/Inactive filter
+            if (request.IsActive.HasValue)
+                query = query.Where(s => s.IsActive == request.IsActive.Value);
+
+            // ✅ Total surveys count (for pagination UI)
+            var totalCount = await query.CountAsync();
+
+
+            int totalActiveSurveys = await query
+    .CountAsync(s => s.IsActive);
+
+            // ✅ Total responses count (optimized - DB level)
+            int totalResponsesCount = await query
+                .SelectMany(s => s.Responses)
+                .CountAsync(r => !r.IsDeleted);
+
+
+            // ✅ Get paginated surveys WITH responses (needed for logic below)
+            var surveys = await query
                 .Include(s => s.Responses)
                 .OrderByDescending(s => s.CreatedAt)
-                .Select(s => new CreatorSurveyListDto
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
+
+            // ================================
+            // ✅ AUTO-DEACTIVATION LOGIC
+            // ================================
+            bool anyChanges = false;
+
+            foreach (var survey in surveys)
+            {
+                bool shouldDeactivate = false;
+
+                // Expiry check
+                if (survey.ExpireAt.HasValue && survey.ExpireAt.Value < now)
+                    shouldDeactivate = true;
+
+                // Max response check
+                if (survey.MaxResponses.HasValue)
+                {
+                    var count = survey.Responses?.Count(r => !r.IsDeleted) ?? 0;
+                    if (count >= survey.MaxResponses.Value)
+                        shouldDeactivate = true;
+                }
+
+                // Apply change only if needed
+                if (shouldDeactivate && survey.IsActive)
+                {
+                    survey.IsActive = false;
+                    anyChanges = true;
+                }
+            }
+
+            // ✅ Persist changes to DB (IMPORTANT FIX)
+            if (anyChanges)
+            {
+                foreach (var survey in surveys.Where(s => !s.IsActive))
+                {
+                    await _surveyRepository.UpdateAsync(survey.Id, survey);
+                }
+            }
+
+            // ================================
+            // ✅ RETURN RESPONSE
+            // ================================
+            return new PagedSurveyResponseDto
+            {
+                TotalCount = totalCount,
+                PageNumber = request.PageNumber,
+                PageSize = request.PageSize,
+                TotalResponsesCount = totalResponsesCount,
+                TotalActiveSurveys = totalActiveSurveys,
+
+
+                Surveys = surveys.Select(s => new CreatorSurveyListDto
                 {
                     SurveyId = s.Id,
                     Title = s.Title,
                     Description = s.Description,
                     IsActive = s.IsActive,
                     CreatedAt = s.CreatedAt,
-                    TotalResponses = s.Responses.Count,
+                    TotalResponses = s.Responses?.Count(r => !r.IsDeleted) ?? 0,
                     PublicIdentifier = s.PublicIdentifier
-                })
-                .ToListAsync();
-
-            return surveys;
+                }).ToList()
+            };
         }
+
 
         public async Task<SurveyAnalyticsDto> GetSurveyAnalyticsAsync(int surveyId, int userId)
         {
             try
             {
-                var survey = await _context.Surveys
+                //var survey = await _context.Surveys
+                var survey = await _surveyRepository.GetQueryable()
                     .Include(s => s.Responses)
                     .Include(s => s.Questions)
                         .ThenInclude(q => q.Options)
@@ -326,7 +563,8 @@ namespace Feedback_Generation_App.Services
 
         public async Task<byte[]> ExportResponsesToExcelAsync(int surveyId, int userId)
         {
-            var survey = await _context.Surveys
+            //var survey = await _context.Surveys
+            var survey = await _surveyRepository.GetQueryable()
                 .Include(s => s.Responses)
                     .ThenInclude(r => r.Answers)
                         .ThenInclude(a => a.Question)
@@ -461,8 +699,9 @@ namespace Feedback_Generation_App.Services
                 survey.Questions.Add(question);
             }
 
-            _context.Surveys.Add(survey);
-            await _context.SaveChangesAsync();
+            //_context.Surveys.Add(survey);
+            //await _context.SaveChangesAsync();
+            await _surveyRepository.AddAsync(survey);
 
             return survey.PublicIdentifier;
         }
@@ -470,7 +709,8 @@ namespace Feedback_Generation_App.Services
 
         public async Task<List<ResponseTrendDto>> GetSurveyResponseTrendAsync(int surveyId, int userId)
         {
-            var survey = await _context.Surveys
+            //var survey = await _context.Surveys
+            var survey = await _surveyRepository.GetQueryable()
                 .FirstOrDefaultAsync(s => s.Id == surveyId && !s.IsDeleted);
 
             if (survey == null)
@@ -479,7 +719,8 @@ namespace Feedback_Generation_App.Services
             if (!IsAdmin() && survey.CreatedById != userId)
                 throw new ForbiddenException("You do not own this survey");
 
-            var trend = await _context.Responses
+            //var trend = await _context.Responses
+            var trend = await _responsesRepository.GetQueryable()
                 .Where(r => r.SurveyId == surveyId && !r.IsDeleted)
                 .Select(r => new
                 {

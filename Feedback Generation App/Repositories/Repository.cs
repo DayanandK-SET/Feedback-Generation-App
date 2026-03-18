@@ -13,6 +13,12 @@ namespace Feedback_Generation_App.Repositories
             _context = context;
         }
 
+
+        public IQueryable<T> GetQueryable()
+        {
+            return _context.Set<T>();
+        }
+
         public async Task<T?> AddAsync(T entity)
         {
             _context.Add(entity);
@@ -60,5 +66,8 @@ namespace Feedback_Generation_App.Repositories
 
             return existingEntity;
         }
+
+
+
     }
 }

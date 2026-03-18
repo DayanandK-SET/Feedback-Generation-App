@@ -7,5 +7,8 @@
         Task<T?> AddAsync(T entity);
         Task<T?> UpdateAsync(K key, T entity);
         Task<T> DeleteAsync(K id);
+
+        IQueryable<T> GetQueryable();
+
     }
 }

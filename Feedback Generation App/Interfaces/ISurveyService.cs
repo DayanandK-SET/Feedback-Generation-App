@@ -14,7 +14,9 @@ namespace Feedback_Generation_App.Interfaces
 
         Task UpdateSurveyAsync(int surveyId, int userId, UpdateSurveyDto dto);
 
-        Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId);
+        //Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId);
+
+        Task<PagedSurveyResponseDto> GetCreatorSurveysAsync(int userId, GetMySurveysRequestDto request);
 
         Task<SurveyAnalyticsDto> GetSurveyAnalyticsAsync(int surveyId, int userId);
 
