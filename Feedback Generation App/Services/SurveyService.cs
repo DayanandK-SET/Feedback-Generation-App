@@ -140,7 +140,7 @@ namespace Feedback_Generation_App.Services
                 .Where(r => !r.IsDeleted)
                 .AsQueryable() ?? new List<Response>().AsQueryable();  //AsQueryable()
 
-            // ✅ DATE FILTER (Now works for Admin too)
+            // Date Filter
             if (request.FromDate.HasValue)
                 responsesQuery = responsesQuery
                     .Where(r => r.CreatedAt >= request.FromDate.Value);
@@ -241,164 +241,43 @@ namespace Feedback_Generation_App.Services
             await _surveyRepository.UpdateAsync(surveyId, survey);
         }
 
-        //public async Task<List<CreatorSurveyListDto>> GetCreatorSurveysAsync(int userId)
-        //{
-        //    var isAdmin = IsAdmin();
-
-        //    var surveys = await _context.Surveys
-        //        .Where(s => !s.IsDeleted &&
-        //                   (isAdmin || s.CreatedById == userId))
-        //        .Include(s => s.Responses)
-        //        .OrderByDescending(s => s.CreatedAt)
-        //        .Select(s => new CreatorSurveyListDto
-        //        {
-        //            SurveyId = s.Id,
-        //            Title = s.Title,
-        //            Description = s.Description,
-        //            IsActive = s.IsActive,
-        //            CreatedAt = s.CreatedAt,
-        //            TotalResponses = s.Responses.Count,
-        //            PublicIdentifier = s.PublicIdentifier
-        //        })
-        //        .ToListAsync();
-
-        //    return surveys;
-        //}
-
-
-        //    public async Task<PagedSurveyResponseDto> GetCreatorSurveysAsync(
-        //int userId, GetMySurveysRequestDto request)
-        //    {
-
-
-
-
-
-
-        //        if (request.PageNumber < 1) request.PageNumber = 1;
-        //        if (request.PageSize < 1) request.PageSize = 10;
-
-        //        var now = DateTime.UtcNow;
-
-        //var query = _context.Surveys
-        //var query = _surveyRepository.GetQueryable()
-        //    .Where(s => s.CreatedById == userId && !s.IsDeleted)
-        //    .Include(s => s.Responses)
-        //    .AsQueryable();
-
-        // Date filters
-        //if (request.FromDate.HasValue)
-        //    query = query.Where(s => s.CreatedAt >= request.FromDate.Value);
-
-        //if (request.ToDate.HasValue)
-        //    query = query.Where(s => s.CreatedAt <= request.ToDate.Value);
-
-        // Active/Inactive filter
-        //if (request.IsActive.HasValue)
-        //    query = query.Where(s => s.IsActive == request.IsActive.Value);
-
-        //var totalCount = await query.CountAsync();
-
-        //var allSurveysForCount = await query
-        //    .Include(s => s.Responses)
-        //    .ToListAsync();
-
-        //int totalResponsesCount = allSurveysForCount.Sum(s => s.Responses?.Count(r => !r.IsDeleted) ?? 0);
-
-        //        int totalResponsesCount = await query
-        //.SelectMany(s => s.Responses)
-        //.CountAsync(r => !r.IsDeleted);
-
-        //        var surveys = await query
-        //            .OrderByDescending(s => s.CreatedAt)
-        //            .Skip((request.PageNumber - 1) * request.PageSize)
-        //            .Take(request.PageSize)
-        //            .ToListAsync();
-
-        // Auto-deactivate expired or limit-reached surveys
-        //foreach (var survey in surveys)
-        //{
-        //    bool shouldDeactivate = false;
-
-        //    if (survey.ExpireAt.HasValue && survey.ExpireAt.Value < now)
-        //        shouldDeactivate = true;
-
-        //    if (survey.MaxResponses.HasValue)
-        //    {
-        //        var count = survey.Responses?.Count(r => !r.IsDeleted) ?? 0;
-        //        if (count >= survey.MaxResponses.Value)
-        //            shouldDeactivate = true;
-        //    }
-
-        //    if (shouldDeactivate && survey.IsActive)
-        //        survey.IsActive = false;
-        //}
-
-        //await _context.SaveChangesAsync();
-        //await _surveyRepository.GetByIdAsync(surveyId);
-
-        //Include → load related data
-        //ThenInclude → load nested data
-        //SelectMany → flatten collections
-        //CountAsync → count in DB(efficient)
-
-        //    return new PagedSurveyResponseDto
-        //    {
-        //        TotalCount = totalCount,
-        //        PageNumber = request.PageNumber,
-        //        PageSize = request.PageSize,
-        //        TotalResponsesCount = totalResponsesCount,
-        //        Surveys = surveys.Select(s => new CreatorSurveyListDto
-        //        {
-        //            SurveyId = s.Id,
-        //            Title = s.Title,
-        //            Description = s.Description,
-        //            IsActive = s.IsActive,
-        //            CreatedAt = s.CreatedAt,
-        //            TotalResponses = s.Responses?.Count(r => !r.IsDeleted) ?? 0,
-        //            PublicIdentifier = s.PublicIdentifier
-        //        }).ToList()
-        //    };
-        //}
 
         public async Task<PagedSurveyResponseDto> GetCreatorSurveysAsync(
     int userId, GetMySurveysRequestDto request)
         {
-            // ✅ Pagination validation
+            // Pagination
             if (request.PageNumber < 1) request.PageNumber = 1;
             if (request.PageSize < 1) request.PageSize = 10;
 
             var now = DateTime.UtcNow;
 
-            // ✅ Base query (ONLY creator's surveys, exclude deleted)
+            // Base query (Only creator's surveys, excluded deleted)
             var query = _surveyRepository.GetQueryable()
                 .Where(s => s.CreatedById == userId && !s.IsDeleted);
 
-            // ✅ Date filters
             if (request.FromDate.HasValue)
                 query = query.Where(s => s.CreatedAt >= request.FromDate.Value);
 
             if (request.ToDate.HasValue)
                 query = query.Where(s => s.CreatedAt <= request.ToDate.Value);
 
-            // ✅ Active/Inactive filter
             if (request.IsActive.HasValue)
                 query = query.Where(s => s.IsActive == request.IsActive.Value);
 
-            // ✅ Total surveys count (for pagination UI)
+            // Total surveys count 
             var totalCount = await query.CountAsync();
 
 
             int totalActiveSurveys = await query
     .CountAsync(s => s.IsActive);
 
-            // ✅ Total responses count (optimized - DB level)
+            // Total responses count
             int totalResponsesCount = await query
                 .SelectMany(s => s.Responses)
                 .CountAsync(r => !r.IsDeleted);
 
 
-            // ✅ Get paginated surveys WITH responses (needed for logic below)
+            // Get paginated surveys with responses
             var surveys = await query
                 .Include(s => s.Responses)
                 .OrderByDescending(s => s.CreatedAt)
@@ -406,9 +285,7 @@ namespace Feedback_Generation_App.Services
                 .Take(request.PageSize)
                 .ToListAsync();
 
-            // ================================
-            // ✅ AUTO-DEACTIVATION LOGIC
-            // ================================
+            // Auto-deactivate logic
             bool anyChanges = false;
 
             foreach (var survey in surveys)
@@ -435,7 +312,7 @@ namespace Feedback_Generation_App.Services
                 }
             }
 
-            // ✅ Persist changes to DB (IMPORTANT FIX)
+            // If any changes to DB
             if (anyChanges)
             {
                 foreach (var survey in surveys.Where(s => !s.IsActive))
@@ -444,9 +321,7 @@ namespace Feedback_Generation_App.Services
                 }
             }
 
-            // ================================
-            // ✅ RETURN RESPONSE
-            // ================================
+
             return new PagedSurveyResponseDto
             {
                 TotalCount = totalCount,
@@ -633,7 +508,7 @@ namespace Feedback_Generation_App.Services
             using var stream = new MemoryStream();
             await dto.File.CopyToAsync(stream);
 
-            // IMPORTANT: Reset stream position
+            // Reset stream position
             stream.Position = 0;
 
             using var workbook = new XLWorkbook(stream);

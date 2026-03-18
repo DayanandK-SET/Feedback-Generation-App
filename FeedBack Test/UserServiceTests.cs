@@ -10,11 +10,9 @@ using Moq;
 
 namespace FeedbackBack_Unit_Tests
 {
-    // ================================================================
-    // UserServiceTests
+
     // Tests: RegisterUser, CheckUser
     // Pattern: Real Repository + InMemory DB + Mock external services
-    // ================================================================
 
     public class UserServiceTests
     {
@@ -24,7 +22,7 @@ namespace FeedbackBack_Unit_Tests
         private readonly Mock<ITokenService> _mockTokenService;
         private readonly UserService _userService;
 
-        // Constructor runs fresh before EVERY test (xUnit behavior)
+        // Constructor runs fresh before Every test (xUnit)
         // Guid.NewGuid() ensures each test gets a completely clean DB
         public UserServiceTests()
         {
@@ -35,10 +33,10 @@ namespace FeedbackBack_Unit_Tests
             _context = new FeedbackContext(options);
             _userRepository = new Repository<int, User>(_context);
 
-            // Real PasswordService — no external dependencies, safe to use directly
+            // Real PasswordService — no external dependencies
             _passwordService = new PasswordService();
 
-            // Mock TokenService — we don't want real JWT logic in unit tests
+            // Mock TokenService
             _mockTokenService = new Mock<ITokenService>();
             _mockTokenService
                 .Setup(ts => ts.CreateToken(It.IsAny<TokenPayloadDto>()))
@@ -51,7 +49,7 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ── Helper ───────────────────────────────────────────────────
+        // Helper 
         // Registers a user and returns the saved entity from DB
         private async Task<User> RegisterTestUser(
             string username = "testuser",
@@ -68,9 +66,8 @@ namespace FeedbackBack_Unit_Tests
                 .FirstAsync(u => u.Username == username);
         }
 
-        // ================================================================
+
         // RegisterUser Tests
-        // ================================================================
 
         [Fact]
         public async Task RegisterUser_ValidDto_UserSavedToDatabase()
@@ -158,9 +155,8 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ================================================================
+
         // CheckUser Tests
-        // ================================================================
 
         [Fact]
         public async Task CheckUser_ValidCredentials_ReturnsUsernameAndToken()

@@ -12,9 +12,7 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ========================
 // Add Services
-// ========================
 
 builder.Services.AddControllers();
 
@@ -54,9 +52,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// ========================
 // Database
-// ========================
 
 builder.Services.AddDbContext<FeedbackContext>(options =>
     options.UseSqlServer(
@@ -64,9 +60,7 @@ builder.Services.AddDbContext<FeedbackContext>(options =>
     )
 );
 
-// ========================
 // CORS
-// ========================
 
 builder.Services.AddCors(options =>
 {
@@ -78,13 +72,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-// ========================
 // Dependency Injection
-// ========================
 
-// 🔥 ADD THIS LINE (FIX)
+
 builder.Services.AddScoped(typeof(IRepository<,>), typeof(Repository<,>));
-
 
 builder.Services.AddScoped<ISurveyService, SurveyService>();
 builder.Services.AddScoped<IPasswordService, PasswordService>();
@@ -95,9 +86,7 @@ builder.Services.AddScoped<QuestionBankService>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAdminService, AdminService>();
 
-// ========================
 // JWT Authentication
-// ========================
 
 string key = builder.Configuration["Keys:Jwt"]
     ?? throw new InvalidOperationException("Secret key not found in configuration.");
@@ -119,15 +108,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ========================
 // Build App
-// ========================
 
 var app = builder.Build();
 
-// ========================
 // Middleware
-// ========================
 
 if (app.Environment.IsDevelopment())
 {

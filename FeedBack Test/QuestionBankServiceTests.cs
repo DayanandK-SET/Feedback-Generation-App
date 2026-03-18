@@ -9,11 +9,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FeedbackBack_Unit_Tests
 {
-    // ================================================================
-    // QuestionBankServiceTests
     // Tests: CreateQuestionsAsync, GetMyQuestionsAsync
-    // Pattern: Real Repository + InMemory DB
-    // ================================================================
+
 
     public class QuestionBankServiceTests
     {
@@ -32,7 +29,7 @@ namespace FeedbackBack_Unit_Tests
             _questionBankService = new QuestionBankService(_questionBankRepository);
         }
 
-        // ── Helper ───────────────────────────────────────────────────
+        //  Helper 
         private List<CreateQuestionBankDto> MakeDtos(params (string text, QuestionType type)[] items)
         {
             return items.Select(i => new CreateQuestionBankDto
@@ -42,9 +39,8 @@ namespace FeedbackBack_Unit_Tests
             }).ToList();
         }
 
-        // ================================================================
+
         // CreateQuestionsAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task CreateQuestionsAsync_SingleTextQuestion_ReturnsOneId()
@@ -189,9 +185,8 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ================================================================
+
         // GetMyQuestionsAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task GetMyQuestionsAsync_CreatorUser_ReturnsOnlyOwnQuestions()

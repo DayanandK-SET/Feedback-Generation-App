@@ -12,7 +12,7 @@ namespace Feedback_Generation_App.Models
         public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
 
         public string Role { get; set; } = string.Empty;
-        // Navigation
+
         public ICollection<Survey>? Surveys { get; set; }
     }
 }

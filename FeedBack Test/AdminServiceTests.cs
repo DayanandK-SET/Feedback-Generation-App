@@ -9,12 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FeedbackBack_Unit_Tests
 {
-    // ================================================================
-    // AdminServiceTests
-    // Tests: GetAllCreatorsAsync, GetAllSurveysAsync,
-    //        DeleteSurveyAsync, DeleteCreatorAsync
+
+    // Tests: GetAllCreatorsAsync, GetAllSurveysAsync, DeleteSurveyAsync, DeleteCreatorAsync
     // Pattern: Real Repository + InMemory DB
-    // ================================================================
 
     public class AdminServiceTests
     {
@@ -36,7 +33,7 @@ namespace FeedbackBack_Unit_Tests
             _adminService = new AdminService(_userRepository, _surveyRepository);
         }
 
-        // ── Helpers ──────────────────────────────────────────────────
+        //  Helpers 
 
         private async Task<User> AddUser(
             string username,
@@ -73,9 +70,8 @@ namespace FeedbackBack_Unit_Tests
             return (await _surveyRepository.AddAsync(survey))!;
         }
 
-        // ================================================================
+
         // GetAllCreatorsAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task GetAllCreatorsAsync_ReturnsOnlyCreatorRoleUsers()
@@ -137,9 +133,8 @@ namespace FeedbackBack_Unit_Tests
             Assert.Equal("testcreator@test.com", result[0].Email);
         }
 
-        // ================================================================
+
         // GetAllSurveysAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task GetAllSurveysAsync_ReturnsAllNonDeletedSurveys()
@@ -189,9 +184,8 @@ namespace FeedbackBack_Unit_Tests
             Assert.Equal("myname", result[0].Creator);
         }
 
-        // ================================================================
+
         // DeleteSurveyAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task DeleteSurveyAsync_ExistingSurvey_SoftDeletesSurvey()
@@ -233,9 +227,8 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ================================================================
+
         // DeleteCreatorAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task DeleteCreatorAsync_ExistingCreator_SoftDeletesCreator()

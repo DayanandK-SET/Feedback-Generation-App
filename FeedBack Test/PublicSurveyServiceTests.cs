@@ -9,11 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FeedbackBack_Unit_Tests
 {
-    // ================================================================
-    // PublicSurveyServiceTests
+
     // Tests: GetSurvey, SubmitSurvey
-    // Pattern: Real Repository + InMemory DB
-    // ================================================================
+ 
 
     public class PublicSurveyServiceTests
     {
@@ -38,7 +36,7 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ── Helpers ──────────────────────────────────────────────────
+        //  Helpers 
 
         private async Task<Survey> CreateActiveSurvey(
             string identifier = "test-id-001",
@@ -92,9 +90,8 @@ namespace FeedbackBack_Unit_Tests
             };
         }
 
-        // ================================================================
+
         // GetSurvey Tests
-        // ================================================================
 
         [Fact]
         public async Task GetSurvey_ActiveSurvey_ReturnsSurveyDto()
@@ -179,9 +176,8 @@ namespace FeedbackBack_Unit_Tests
             Assert.All(result.Questions, q => Assert.NotEmpty(q.Text));
         }
 
-        // ================================================================
+
         // SubmitSurvey Tests
-        // ================================================================
 
         [Fact]
         public async Task SubmitSurvey_ValidAnswers_ResponseSavedToDatabase()

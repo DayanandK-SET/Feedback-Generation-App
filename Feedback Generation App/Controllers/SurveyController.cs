@@ -42,9 +42,6 @@ public class SurveyController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-        //if (userIdClaim == null)
-        //    return Unauthorized("Invalid token");
-
         var userId = int.Parse(userIdClaim.Value);
 
         var result = await _surveyService
@@ -60,9 +57,6 @@ public class SurveyController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-        //if (userIdClaim == null)
-        //    return Unauthorized("Invalid token");
-
         var userId = int.Parse(userIdClaim.Value);
 
         await _surveyService.DeleteSurveyAsync(id, userId);
@@ -75,9 +69,6 @@ public class SurveyController : ControllerBase
     public async Task<IActionResult> ToggleSurveyStatus(int id)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-        //if (userIdClaim == null)
-        //    return Unauthorized("Invalid token");
 
         var userId = int.Parse(userIdClaim.Value);
 
@@ -93,9 +84,6 @@ public class SurveyController : ControllerBase
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-        //if (userIdClaim == null)
-        //    return Unauthorized("Invalid token");
-
         var userId = int.Parse(userIdClaim.Value);
 
         await _surveyService.UpdateSurveyAsync(id, userId, dto);
@@ -103,22 +91,6 @@ public class SurveyController : ControllerBase
         return Ok(new { Message = "Survey updated successfully" });
     }
 
-
-    //[Authorize(Roles = "Creator,Admin")]
-    //[HttpGet("my-surveys")]
-    //public async Task<IActionResult> GetMySurveys()
-    //{
-    //    var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-    //    //if (userIdClaim == null)
-    //    //    return Unauthorized("Invalid token");
-
-    //    var userId = int.Parse(userIdClaim.Value);
-
-    //    var surveys = await _surveyService.GetCreatorSurveysAsync(userId);
-
-    //    return Ok(surveys);
-    //}
     [Authorize(Roles = "Creator,Admin")]
     [HttpPost("my-surveys/search")]
     public async Task<IActionResult> GetMySurveys(
@@ -136,9 +108,6 @@ public class SurveyController : ControllerBase
     public async Task<IActionResult> GetSurveyAnalytics(int id)
     {
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-        //if (userIdClaim == null)
-        //    return Unauthorized("Invalid token");
 
         var userId = int.Parse(userIdClaim.Value);
 

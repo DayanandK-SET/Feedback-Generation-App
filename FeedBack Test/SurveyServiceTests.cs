@@ -12,13 +12,10 @@ using System.Security.Claims;
 
 namespace FeedbackBack_Unit_Tests
 {
-    // ================================================================
-    // SurveyServiceTests
-    // Tests: CreateSurvey, DeleteSurveyAsync, ToggleSurveyStatusAsync,
-    //        UpdateSurveyAsync, GetSurveyResponsesAsync,
-    //        GetSurveyResponseTrendAsync, GetSurveyAnalyticsAsync
+
+    // Tests: CreateSurvey, DeleteSurveyAsync, ToggleSurveyStatusAsync, UpdateSurveyAsync, GetSurveyResponsesAsync, GetSurveyResponseTrendAsync, GetSurveyAnalyticsAsync
+       
     // Pattern: Real Repository + InMemory DB + Mock IHttpContextAccessor
-    // ================================================================
 
     public class SurveyServiceTests
     {
@@ -27,7 +24,7 @@ namespace FeedbackBack_Unit_Tests
         private readonly IRepository<int, QuestionBank> _bankRepository;
         private readonly IRepository<int, Response> _responseRepository;
 
-        // Constructor is called fresh before EVERY test (xUnit)
+        // Constructor is called fresh before Every test (xUnit)
         public SurveyServiceTests()
         {
             var options = new DbContextOptionsBuilder<FeedbackContext>()
@@ -40,7 +37,7 @@ namespace FeedbackBack_Unit_Tests
             _responseRepository = new Repository<int, Response>(_context);
         }
 
-        // ── Helpers ──────────────────────────────────────────────────
+        //  Helpers 
 
         // Creates a SurveyService with the given role (Creator or Admin)
         private SurveyService CreateService(string role = "Creator")
@@ -116,9 +113,8 @@ namespace FeedbackBack_Unit_Tests
             await _responseRepository.AddAsync(response);
         }
 
-        // ================================================================
+
         // CreateSurvey Tests
-        // ================================================================
 
         [Fact]
         public async Task CreateSurvey_ManualTextQuestion_SurveySavedAndReturnsIdentifier()
@@ -250,9 +246,8 @@ namespace FeedbackBack_Unit_Tests
             Assert.NotNull(saved.ExpireAt);
         }
 
-        // ================================================================
+
         // DeleteSurveyAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task DeleteSurveyAsync_OwnSurvey_SurveyIsSoftDeleted()
@@ -318,9 +313,8 @@ namespace FeedbackBack_Unit_Tests
             Assert.True(fromDb!.IsDeleted);
         }
 
-        // ================================================================
+
         // ToggleSurveyStatusAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task ToggleSurveyStatusAsync_ActiveSurvey_BecomesInactive()
@@ -442,9 +436,7 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ================================================================
         // GetSurveyResponsesAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task GetSurveyResponsesAsync_SurveyWithResponses_ReturnsCorrectCount()
@@ -504,9 +496,8 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ================================================================
+
         // GetSurveyResponseTrendAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task GetSurveyResponseTrendAsync_WithResponses_ReturnsTrendGroupedByDate()
@@ -563,9 +554,8 @@ namespace FeedbackBack_Unit_Tests
             );
         }
 
-        // ================================================================
+
         // GetSurveyAnalyticsAsync Tests
-        // ================================================================
 
         [Fact]
         public async Task GetSurveyAnalyticsAsync_ValidSurvey_ReturnsSurveyIdAndTitle()
