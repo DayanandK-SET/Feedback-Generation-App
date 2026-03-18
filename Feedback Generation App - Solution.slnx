@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="Feedback Generation App/Feedback Generation App.csproj" />
+  <Project Path="FeedBack Test/FeedBack Test.csproj" Id="e1f9ce72-3437-4a2e-bee9-c13988648f3a" />
 </Solution>
