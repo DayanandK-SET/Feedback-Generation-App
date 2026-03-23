@@ -58,7 +58,7 @@ namespace Feedback_Generation_App.Services
                 .AnyAsync(u => u.Username == request.Username);
 
             if (existingUser)
-                throw new Exception("Username already exists");
+                throw new BadRequestException("Username already exists");
 
             var hashedPassword = _passwordService
                 .HashPassword(request.Password, null, out byte[] hashKey);

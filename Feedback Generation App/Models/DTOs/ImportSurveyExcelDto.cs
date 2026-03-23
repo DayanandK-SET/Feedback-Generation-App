@@ -9,5 +9,10 @@ namespace Feedback_Generation_App.Models.DTOs
         public string? Description { get; set; }
 
         public IFormFile File { get; set; } = null!;
+
+
+        public DateTime? ExpireAt { get; set; }
+
+        public int? MaxResponses { get; set; }
     }
 }

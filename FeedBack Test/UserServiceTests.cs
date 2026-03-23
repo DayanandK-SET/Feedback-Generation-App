@@ -145,7 +145,7 @@ namespace FeedbackBack_Unit_Tests
             await RegisterTestUser("existinguser");
 
             // Act & Assert — register same username again
-            await Assert.ThrowsAsync<Exception>(async () =>
+            await Assert.ThrowsAsync<BadRequestException>(async () =>
                 await _userService.RegisterUser(new RegisterUserDto
                 {
                     Username = "existinguser",

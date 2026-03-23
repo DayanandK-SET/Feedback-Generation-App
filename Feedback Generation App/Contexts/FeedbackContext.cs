@@ -5,26 +5,27 @@ namespace Feedback_Generation_App.Contexts
 {
     public class FeedbackContext : DbContext
     {
-        public FeedbackContext(DbContextOptions<FeedbackContext> options): base(options)
+        public FeedbackContext(DbContextOptions<FeedbackContext> options) : base(options)
         {
         }
 
-        
         public DbSet<User> Users => Set<User>();
         public DbSet<Survey> Surveys => Set<Survey>();
         public DbSet<Question> Questions => Set<Question>();
         public DbSet<QuestionOption> QuestionOptions => Set<QuestionOption>();
         public DbSet<Response> Responses => Set<Response>();
         public DbSet<Answer> Answers => Set<Answer>();
-
         public DbSet<QuestionBank> QuestionBanks => Set<QuestionBank>();
         public DbSet<QuestionBankOption> QuestionBankOptions => Set<QuestionBankOption>();
+
+        public DbSet<Log> Logs => Set<Log>();
+
+        public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            
             // User → Surveys (One-to-Many)
             modelBuilder.Entity<User>()
                 .HasMany(u => u.Surveys)
@@ -79,8 +80,6 @@ namespace Feedback_Generation_App.Contexts
                 .HasForeignKey(a => a.SelectedOptionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-
-
             // QuestionBank → Options
             modelBuilder.Entity<QuestionBank>()
                 .HasMany(q => q.Options)
@@ -95,9 +94,26 @@ namespace Feedback_Generation_App.Contexts
                 .HasForeignKey(q => q.CreatedById)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Log table — no relationships, just column constraints
+            modelBuilder.Entity<Log>(entity =>
+            {
+                entity.HasKey(l => l.Id);
+                entity.Property(l => l.ExceptionType).HasMaxLength(200);
+                entity.Property(l => l.Method).HasMaxLength(10);
+                entity.Property(l => l.Path).HasMaxLength(500);
+                entity.Property(l => l.QueryString).HasMaxLength(1000);
+                entity.Property(l => l.Username).HasMaxLength(100);
+                entity.Property(l => l.UserRole).HasMaxLength(50);
+            });
 
-
-
+            // AuditLog table — standalone, no FK constraints
+            modelBuilder.Entity<AuditLog>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+                entity.Property(a => a.Action).HasMaxLength(100);
+                entity.Property(a => a.SurveyTitle).HasMaxLength(200);
+                entity.Property(a => a.PerformedBy).HasMaxLength(100);
+            });
         }
     }
 }

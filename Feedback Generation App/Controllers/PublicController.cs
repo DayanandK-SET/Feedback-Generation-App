@@ -31,7 +31,7 @@ public class PublicController : ControllerBase
         try
         {
             await _service.SubmitSurvey(publicIdentifier, dto);
-            return Ok("Survey submitted successfully");
+            return Ok(new { message = "Survey submitted successfully" });
         }
         catch (ArgumentException ex)
         {

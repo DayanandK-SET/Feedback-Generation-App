@@ -34,14 +34,22 @@ namespace Feedback_Generation_App.Controllers
         public async Task<IActionResult> DeleteSurvey(int id)
         {
             await _adminService.DeleteSurveyAsync(id);
-            return Ok("Survey deleted successfully");
+            return Ok(new { message = "Survey Deleted successfully" });
         }
 
         [HttpDelete("creator/{id}")]
         public async Task<IActionResult> DeleteCreator(int id)
         {
             await _adminService.DeleteCreatorAsync(id);
-            return Ok("Creator deleted successfully");
+            return Ok(new { message = "Creator Deleted successfully" });
+        }
+
+        
+        [HttpGet("audit-logs")]
+        public async Task<IActionResult> GetAuditLogs()
+        {
+            var logs = await _adminService.GetAuditLogsAsync();
+            return Ok(logs);
         }
     }
 }

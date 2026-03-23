@@ -9,7 +9,7 @@
         public DateTime CreatedAt { get; set; }
         public int TotalResponses { get; set; }
 
-
+        public bool IsLocked { get; set; }
         public string PublicIdentifier { get; set; } = string.Empty;
     }
 }

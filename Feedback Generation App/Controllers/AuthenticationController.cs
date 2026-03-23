@@ -18,35 +18,19 @@ namespace Feedback_Generation_App.Controllers
         [HttpPost("Login")]
         public async Task<ActionResult<CheckUserResponseDto>> Login(CheckUserRequestDto userRequestDto)
         {
-            try
-            {
-                var result = await _userService.CheckUser(userRequestDto);
-                return Ok(result);
-            }
-            catch (UnAuthorizedException)
-            {
-                return Unauthorized("Invalid username or password");
-            }
-            catch (Exception e)
-            {
-                return BadRequest(e.Message);
-            }
+
+            var result = await _userService.CheckUser(userRequestDto);
+            return Ok(result);
 
         }
 
         [HttpPost("Register")]
         public async Task<ActionResult> Register(RegisterUserDto request)
         {
-            try
-            {
-                await _userService.RegisterUser(request);
-                //return Ok("User registered successfully");
-                return Ok(new { message = "User registered successfully" });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(ex.Message);
-            }
+            await _userService.RegisterUser(request);
+            return Ok(new { message = "User registered successfully" });
+            //return Ok("User registered successfully");
+
         }
     }
 }

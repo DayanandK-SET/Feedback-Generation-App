@@ -2,6 +2,7 @@
 using Feedback_Generation_App.Interfaces;
 using Feedback_Generation_App.Models;
 using Feedback_Generation_App.Models.DTOs;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.EntityFrameworkCore;
 
 namespace Feedback_Generation_App.Services
@@ -10,13 +11,16 @@ namespace Feedback_Generation_App.Services
     {
         private readonly IRepository<int, User> _userRepository;
         private readonly IRepository<int, Survey> _surveyRepository;
+        private readonly IRepository<int, AuditLog> _auditLogRepository;
 
         public AdminService(
             IRepository<int, User> userRepository,
-            IRepository<int, Survey> surveyRepository)
+            IRepository<int, Survey> surveyRepository,
+            IRepository<int, AuditLog> auditLogRepository)
         {
             _userRepository = userRepository;
             _surveyRepository = surveyRepository;
+            _auditLogRepository = auditLogRepository;
         }
 
         public async Task<List<AdminCreatorDto>> GetAllCreatorsAsync()
@@ -56,8 +60,9 @@ namespace Feedback_Generation_App.Services
                 throw new NotFoundException("Survey not found");
 
             survey.IsDeleted = true;
-
             await _surveyRepository.UpdateAsync(surveyId, survey);
+
+            
         }
 
         public async Task DeleteCreatorAsync(int creatorId)
@@ -72,8 +77,24 @@ namespace Feedback_Generation_App.Services
                 throw new NotFoundException("Creator not found");
 
             user.IsDeleted = true;
-
             await _userRepository.UpdateAsync(creatorId, user);
+        }
+
+        // Returns all audit logs, most recent first
+        public async Task<List<AuditLogDto>> GetAuditLogsAsync()
+        {
+            return await _auditLogRepository.GetQueryable()
+                .OrderByDescending(a => a.PerformedAt)
+                .Select(a => new AuditLogDto
+                {
+                    Id = a.Id,
+                    Action = a.Action,
+                    SurveyId = a.SurveyId,
+                    SurveyTitle = a.SurveyTitle,
+                    PerformedBy = a.PerformedBy,
+                    PerformedAt = a.PerformedAt
+                })
+                .ToListAsync();
         }
     }
 }
