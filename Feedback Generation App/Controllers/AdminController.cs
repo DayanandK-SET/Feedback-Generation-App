@@ -37,14 +37,22 @@ namespace Feedback_Generation_App.Controllers
             return Ok(new { message = "Survey Deleted successfully" });
         }
 
-        [HttpDelete("creator/{id}")]
-        public async Task<IActionResult> DeleteCreator(int id)
+        //[HttpDelete("creator/{id}")]
+        //public async Task<IActionResult> DeleteCreator(int id)
+        //{
+        //    await _adminService.DeleteCreatorAsync(id);
+        //    return Ok(new { message = "Creator Deleted successfully" });
+        //}
+
+
+        [HttpPatch("creator/{id}/toggle-status")]
+        public async Task<IActionResult> ToggleCreatorStatus(int id)
         {
-            await _adminService.DeleteCreatorAsync(id);
-            return Ok(new { message = "Creator Deleted successfully" });
+            await _adminService.ToggleCreatorStatusAsync(id);
+            return Ok(new { Message = "Creator status updated successfully" });
         }
 
-        
+
         [HttpGet("audit-logs")]
         public async Task<IActionResult> GetAuditLogs()
         {

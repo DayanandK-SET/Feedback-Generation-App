@@ -19,6 +19,8 @@ namespace Feedback_Generation_App.Services
         private readonly IRepository<int, Response> _responsesRepository;
         private readonly IRepository<int, AuditLog> _auditLogRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IRepository<int, User> _userRepository;
+
 
 
         public SurveyService(
@@ -26,13 +28,15 @@ namespace Feedback_Generation_App.Services
     IRepository<int, Survey> surveyRepository,
     IRepository<int, QuestionBank> bankRepository,
     IRepository<int, Response> responsesRepository,
-    IRepository<int, AuditLog> auditLogRepository)   
+    IRepository<int, AuditLog> auditLogRepository,
+    IRepository<int, User> userRepository)   
         {
             _httpContextAccessor = httpContextAccessor;
             _surveyRepository = surveyRepository;
             _bankRepository = bankRepository;
             _responsesRepository = responsesRepository;
-            _auditLogRepository = auditLogRepository;          
+            _auditLogRepository = auditLogRepository;
+            _userRepository = userRepository;
         }
 
 
@@ -51,6 +55,19 @@ namespace Feedback_Generation_App.Services
 
         public async Task<string> CreateSurvey(CreateSurveyDto dto, int creatorId)
         {
+
+            // ✅ NEW: Block inactive creators from creating surveys
+            var creator = await _userRepository.GetQueryable()
+                .FirstOrDefaultAsync(u => u.Id == creatorId);
+
+            if (creator == null || creator.IsDeleted)
+                throw new ForbiddenException(
+                    "Your account has been deactivated by the admin. You cannot create surveys.");
+
+
+
+
+
             var survey = new Survey
             {
                 Title = dto.Title,
@@ -323,6 +340,8 @@ namespace Feedback_Generation_App.Services
 
             survey.Title = dto.Title;
             survey.Description = dto.Description;
+            survey.ExpireAt = dto.ExpireAt;
+            survey.MaxResponses = dto.MaxResponses;
             survey.UpdatedAt = DateTime.UtcNow;
 
             await _surveyRepository.UpdateAsync(surveyId, survey);
@@ -570,7 +589,10 @@ namespace Feedback_Generation_App.Services
                     IsLocked =
                         (s.ExpireAt.HasValue && s.ExpireAt.Value < now) ||
                         (s.MaxResponses.HasValue &&
-                         (s.Responses?.Count(r => !r.IsDeleted) ?? 0) >= s.MaxResponses.Value)
+                         (s.Responses?.Count(r => !r.IsDeleted) ?? 0) >= s.MaxResponses.Value),
+                    ExpireAt = s.ExpireAt,
+                    MaxResponses = s.MaxResponses
+
                 }).ToList()
             };
         }
