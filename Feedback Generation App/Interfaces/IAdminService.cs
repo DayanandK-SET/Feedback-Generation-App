@@ -10,5 +10,9 @@ namespace Feedback_Generation_App.Interfaces
         //Task DeleteCreatorAsync(int creatorId);
         Task ToggleCreatorStatusAsync(int creatorId);
         Task<List<AuditLogDto>> GetAuditLogsAsync();
+
+
+        Task<AdminCreatorsPagedResponseDto> SearchCreatorsAsync(GetAdminCreatorsRequestDto request);
+        Task<AdminSurveysPagedResponseDto> SearchSurveysAsync(GetAdminSurveysRequestDto request);
     }
 }
