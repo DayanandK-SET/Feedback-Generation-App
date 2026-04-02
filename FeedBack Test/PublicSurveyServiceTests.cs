@@ -302,5 +302,220 @@ namespace FeedbackBack_Unit_Tests
 
             Assert.Equal(2, count);
         }
+
+
+        [Fact]
+        public async Task SubmitSurvey_InvalidQuestionId_ThrowsArgumentException()
+        {
+            var survey = await CreateActiveSurvey("invalid-question");
+
+            var dto = new SubmitSurveyDto
+            {
+                ResponseToken = "token-invalid",
+                Answers = new List<SubmitAnswerDto>
+        {
+            new SubmitAnswerDto
+            {
+                QuestionId = 9999, // ❌ invalid
+                TextAnswer = "Wrong question"
+            }
+        }
+            };
+
+            await Assert.ThrowsAsync<ArgumentException>(() =>
+                _publicSurveyService.SubmitSurvey("invalid-question", dto)
+            );
+        }
+
+
+        [Fact]
+        public async Task SubmitSurvey_SelectedOptionId_SavesOptionAnswer()
+        {
+            var survey = new Survey
+            {
+                Title = "MCQ Survey",
+                Description = "Test",
+                PublicIdentifier = "mcq-001",
+                IsActive = true,
+                Questions = new List<Question>
+        {
+            new Question
+            {
+                Text = "Choose one",
+                QuestionType = QuestionType.MultipleChoice,
+                Options = new List<QuestionOption>
+                {
+                    new QuestionOption { OptionText = "A" },
+                    new QuestionOption { OptionText = "B" }
+                }
+            }
+        }
+            };
+
+            await _surveyRepository.AddAsync(survey);
+
+            var question = _context.Set<Question>()
+                .Include(q => q.Options)
+                .First(q => q.SurveyId == survey.Id);
+
+            var dto = new SubmitSurveyDto
+            {
+                ResponseToken = "option-token",
+                Answers = new List<SubmitAnswerDto>
+        {
+            new SubmitAnswerDto
+            {
+                QuestionId = question.Id,
+                SelectedOptionId = question.Options!.First().Id
+            }
+        }
+            };
+
+            await _publicSurveyService.SubmitSurvey("mcq-001", dto);
+
+            var saved = await _responseRepository.GetQueryable()
+                .Include(r => r.Answers)
+                .FirstAsync();
+
+            Assert.NotNull(saved.Answers!.First().SelectedOptionId);
+        }
+
+
+        [Fact]
+        public async Task GetSurvey_DeletedSurvey_ReturnsNull()
+        {
+            var survey = new Survey
+            {
+                Title = "Deleted Survey",
+                Description = "Removed",
+                PublicIdentifier = "deleted-001",
+                IsActive = true,
+                IsDeleted = true
+            };
+
+            await _surveyRepository.AddAsync(survey);
+
+            var result = await _publicSurveyService.GetSurvey("deleted-001");
+
+            Assert.Null(result);
+        }
+
+
+        [Fact]
+        public async Task SubmitSurvey_SelectedOptionId_BranchIsCovered()
+        {
+            var survey = new Survey
+            {
+                Title = "MCQ Survey",
+                Description = "Test",
+                PublicIdentifier = "mcq-option",
+                IsActive = true,
+                Questions = new List<Question>
+        {
+            new Question
+            {
+                Text = "Choose one",
+                QuestionType = QuestionType.MultipleChoice,
+                Options = new List<QuestionOption>
+                {
+                    new QuestionOption { OptionText = "Option A" }
+                }
+            }
+        }
+            };
+
+            await _surveyRepository.AddAsync(survey);
+
+            var question = _context.Set<Question>()
+                .Include(q => q.Options)
+                .First(q => q.SurveyId == survey.Id);
+
+            var dto = new SubmitSurveyDto
+            {
+                ResponseToken = "token-option",
+                Answers = new List<SubmitAnswerDto>
+        {
+            new SubmitAnswerDto
+            {
+                QuestionId = question.Id,
+                SelectedOptionId = question.Options!.First().Id
+            }
+        }
+            };
+
+            await _publicSurveyService.SubmitSurvey("mcq-option", dto);
+
+            var saved = await _responseRepository.GetQueryable()
+                .Include(r => r.Answers)
+                .FirstAsync();
+
+            Assert.NotNull(saved.Answers!.First().SelectedOptionId);
+        }
+
+
+
+        [Fact]
+        public async Task GetSurvey_QuestionWithoutOptions_OptionsIsEmptyList()
+        {
+            var survey = new Survey
+            {
+                Title = "No Options Survey",
+                Description = "Test",
+                PublicIdentifier = "no-options",
+                IsActive = true,
+                Questions = new List<Question>
+        {
+            new Question
+            {
+                Text = "Text only question",
+                QuestionType = QuestionType.Text
+            }
+        }
+            };
+
+            await _surveyRepository.AddAsync(survey);
+
+            var result = await _publicSurveyService.GetSurvey("no-options");
+
+            Assert.NotNull(result);
+            Assert.Single(result!.Questions);
+            Assert.NotNull(result.Questions[0].Options);
+            Assert.Empty(result.Questions[0].Options);
+        }
+
+
+
+        [Fact]
+        public async Task SubmitSurvey_AnswerWithNoValue_DoesNotThrow()
+        {
+            var survey = await CreateActiveSurvey("empty-answer");
+
+            var question = _context.Set<Question>()
+                .First(q => q.SurveyId == survey.Id);
+
+            var dto = new SubmitSurveyDto
+            {
+                ResponseToken = "token-empty-answer",
+                Answers = new List<SubmitAnswerDto>
+        {
+            new SubmitAnswerDto
+            {
+                QuestionId = question.Id
+                // ❌ no TextAnswer
+                // ❌ no RatingValue
+                // ❌ no SelectedOptionId
+            }
+        }
+            };
+
+            await _publicSurveyService.SubmitSurvey("empty-answer", dto);
+
+            var saved = await _responseRepository.GetQueryable()
+                .Include(r => r.Answers)
+                .FirstAsync();
+
+            Assert.NotNull(saved.Answers);
+        }
+
     }
 }

@@ -18,7 +18,10 @@ namespace FeedbackBack_Unit_Tests
         private readonly IRepository<int, Survey> _surveyRepository;
         private readonly IRepository<int, QuestionBank> _bankRepository;
         private readonly IRepository<int, Response> _responseRepository;
-        private readonly IRepository<int, AuditLog> _auditLogRepository; 
+        private readonly IRepository<int, AuditLog> _auditLogRepository;
+
+        private readonly IRepository<int, User> _userRepository;
+
 
         public SurveyServiceTests()
         {
@@ -30,7 +33,8 @@ namespace FeedbackBack_Unit_Tests
             _surveyRepository = new Repository<int, Survey>(_context);
             _bankRepository = new Repository<int, QuestionBank>(_context);
             _responseRepository = new Repository<int, Response>(_context);
-            _auditLogRepository = new Repository<int, AuditLog>(_context); 
+            _auditLogRepository = new Repository<int, AuditLog>(_context);
+            _userRepository = new Repository<int, User>(_context);
         }
 
         // Creates a SurveyService with the given role (Creator or Admin)
@@ -51,13 +55,16 @@ namespace FeedbackBack_Unit_Tests
 
             mockAccessor.Setup(x => x.HttpContext).Returns(httpContext);
 
+
             return new SurveyService(
                 mockAccessor.Object,
                 _surveyRepository,
                 _bankRepository,
                 _responseRepository,
-                _auditLogRepository  
+                _auditLogRepository,
+                _userRepository
             );
+
         }
 
         // Adds a survey to the InMemory DB directly
@@ -467,5 +474,409 @@ namespace FeedbackBack_Unit_Tests
                 await service.GetSurveyAnalyticsAsync(survey.Id, userId: 1)
             );
         }
+
+
+        [Fact]
+        public async Task CreateSurvey_DeletedCreator_ThrowsForbiddenException()
+        {
+            await _userRepository.AddAsync(new User
+            {
+                Id = 5,
+                Username = "deleted",
+                IsDeleted = true
+            });
+
+            var service = CreateService("Creator");
+
+            var dto = new CreateSurveyDto
+            {
+                Title = "Blocked",
+                Questions = new()
+        {
+            new CreateQuestionDto { Text = "Q", QuestionType = QuestionType.Text }
+        }
+            };
+
+            await Assert.ThrowsAsync<ForbiddenException>(() =>
+                service.CreateSurvey(dto, creatorId: 5));
+        }
+
+
+        [Fact]
+        public async Task ExportResponsesToExcelAsync_ValidSurvey_ReturnsExcelBytes()
+        {
+            var service = CreateService("Creator");
+            var survey = await AddSurvey(createdById: 1);
+            var question = await _context.Set<Question>()
+                .FirstAsync(q => q.SurveyId == survey.Id);
+
+            await AddResponse(survey.Id, question.Id);
+
+            var bytes = await service.ExportResponsesToExcelAsync(survey.Id, userId: 1);
+
+            Assert.NotNull(bytes);
+            Assert.True(bytes.Length > 0);
+        }
+
+
+        [Fact]
+        public async Task ExportResponsesToExcelAsync_NonExistentSurvey_ThrowsNotFound()
+        {
+            var service = CreateService("Creator");
+
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                service.ExportResponsesToExcelAsync(9999, 1));
+        }
+
+
+
+        [Fact]
+        public async Task ImportSurveyFromExcelAsync_ValidExcel_CreatesSurvey()
+        {
+            var service = CreateService("Creator");
+
+            using var workbook = new ClosedXML.Excel.XLWorkbook();
+            var ws = workbook.AddWorksheet("Questions");
+
+            ws.Cell(1, 1).Value = "Question";
+            ws.Cell(1, 2).Value = "Type";
+            ws.Cell(2, 1).Value = "How are you?";
+            ws.Cell(2, 2).Value = "Text";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            stream.Position = 0;
+
+            var file = new FormFile(stream, 0, stream.Length, "file", "survey.xlsx");
+
+            var dto = new ImportSurveyExcelDto
+            {
+                Title = "Imported Survey",
+                File = file
+            };
+
+            var publicId = await service.ImportSurveyFromExcelAsync(dto, creatorId: 1);
+
+            Assert.NotEmpty(publicId);
+        }
+
+
+        [Fact]
+        public async Task ImportSurveyFromExcelAsync_NullFile_ThrowsBadRequest()
+        {
+            var service = CreateService("Creator");
+
+            var dto = new ImportSurveyExcelDto { Title = "Fail" };
+
+            await Assert.ThrowsAsync<BadRequestException>(() =>
+                service.ImportSurveyFromExcelAsync(dto, 1));
+        }
+
+
+        [Fact]
+        public async Task GetCreatorSurveysAsync_ExpiredSurvey_AutoDeactivates()
+        {
+            var service = CreateService("Creator");
+
+            var survey = await _surveyRepository.AddAsync(new Survey
+            {
+                Title = "Expired",
+                CreatedById = 1,
+                IsActive = true,
+                ExpireAt = DateTime.UtcNow.AddDays(-1)
+            });
+
+            var result = await service.GetCreatorSurveysAsync(1, new GetMySurveysRequestDto());
+
+            Assert.False(result.Surveys.First().IsActive);
+        }
+
+
+        [Fact]
+        public async Task GetCreatorSurveysAsync_FilterByIsActive_ReturnsOnlyActive()
+        {
+            var service = CreateService("Creator");
+
+            await AddSurvey(createdById: 1, isActive: true);
+            await AddSurvey(createdById: 1, isActive: false);
+
+            var result = await service.GetCreatorSurveysAsync(
+                1,
+                new GetMySurveysRequestDto { IsActive = true });
+
+            Assert.Single(result.Surveys);
+            Assert.True(result.Surveys[0].IsActive);
+        }
+
+        [Fact]
+        public async Task ImportSurveyFromExcel_MCQuestionWithoutOptions_ThrowsBadRequest()
+        {
+            var service = CreateService("Creator");
+
+            using var wb = new ClosedXML.Excel.XLWorkbook();
+            var ws = wb.AddWorksheet("Sheet1");
+
+            ws.Cell(1, 1).Value = "Question";
+            ws.Cell(1, 2).Value = "Type";
+            ws.Cell(2, 1).Value = "Pick one";
+            ws.Cell(2, 2).Value = "MultipleChoice";
+
+            using var stream = new MemoryStream();
+            wb.SaveAs(stream);
+            stream.Position = 0;
+
+            var file = new FormFile(stream, 0, stream.Length, "file", "bad.xlsx");
+
+            var dto = new ImportSurveyExcelDto { Title = "Bad", File = file };
+
+            await Assert.ThrowsAsync<BadRequestException>(() =>
+                service.ImportSurveyFromExcelAsync(dto, 1));
+        }
+
+
+        [Fact]
+        public async Task GetCreatorSurveysAsync_MaxResponsesReached_AutoDeactivates()
+        {
+            var service = CreateService("Creator");
+
+            var survey = await _surveyRepository.AddAsync(new Survey
+            {
+                Title = "Limited",
+                CreatedById = 1,
+                IsActive = true,
+                MaxResponses = 1,
+                Responses = new List<Response>
+        {
+            new Response { IsDeleted = false }
+        }
+            });
+
+            var result = await service.GetCreatorSurveysAsync(
+                1,
+                new GetMySurveysRequestDto());
+
+            Assert.False(result.Surveys.First().IsActive);
+        }
+
+
+        [Fact]
+        public async Task GetSurveyResponsesAsync_WithDateFilters_FiltersCorrectly()
+        {
+            var service = CreateService("Creator");
+            var survey = await AddSurvey(1);
+
+            var question = await _context.Set<Question>()
+                .FirstAsync(q => q.SurveyId == survey.Id);
+
+            await AddResponse(survey.Id, question.Id);
+            await AddResponse(survey.Id, question.Id);
+
+            var request = new GetSurveyResponsesRequestDto
+            {
+                FromDate = DateTime.UtcNow.AddMinutes(-1),
+                ToDate = DateTime.UtcNow.AddMinutes(1)
+            };
+
+            var result = await service.GetSurveyResponsesAsync(survey.Id, 1, request);
+
+            Assert.True(result.TotalResponses >= 1);
+        }
+
+
+        [Fact]
+        public async Task CreateSurvey_ManualQuestion_MissingTextOrType_ThrowsBadRequest()
+        {
+            var service = CreateService("Creator");
+
+            var dto = new CreateSurveyDto
+            {
+                Title = "Invalid",
+                Questions = new()
+        {
+            new CreateQuestionDto { Text = "", QuestionType = null }
+        }
+            };
+
+            await Assert.ThrowsAsync<BadRequestException>(() =>
+                service.CreateSurvey(dto, 1));
+        }
+
+
+
+        [Fact]
+        public async Task CreateSurvey_DeletedBankQuestion_ThrowsBadRequest()
+        {
+            var service = CreateService("Creator");
+
+            var bank = await _bankRepository.AddAsync(new QuestionBank
+            {
+                Text = "Deleted",
+                QuestionType = QuestionType.Text,
+                CreatedById = 1,
+                IsDeleted = true
+            });
+
+            var dto = new CreateSurveyDto
+            {
+                Title = "Fail",
+                Questions = new()
+        {
+            new CreateQuestionDto { QuestionBankId = bank.Id }
+        }
+            };
+
+            await Assert.ThrowsAsync<BadRequestException>(() =>
+                service.CreateSurvey(dto, 1));
+        }
+
+
+
+        [Fact]
+        public async Task DeleteSurveyAsync_AlreadyDeletedSurvey_ThrowsNotFound()
+        {
+            var service = CreateService("Creator");
+
+            var survey = await AddSurvey(1, isDeleted: true);
+
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                service.DeleteSurveyAsync(survey.Id, 1));
+        }
+
+
+
+
+        [Fact]
+        public async Task ToggleSurveyStatusAsync_DeletedSurvey_ThrowsNotFound()
+        {
+            var service = CreateService("Creator");
+
+            var survey = await AddSurvey(1, isDeleted: true);
+
+            await Assert.ThrowsAsync<NotFoundException>(() =>
+                service.ToggleSurveyStatusAsync(survey.Id, 1));
+        }
+
+
+
+
+        [Fact]
+        public async Task UpdateSurveyAsync_NoFieldsProvided_ThrowsBadRequest()
+        {
+            var service = CreateService("Creator");
+            var survey = await AddSurvey(1);
+
+            await Assert.ThrowsAsync<BadRequestException>(() =>
+                service.UpdateSurveyAsync(survey.Id, 1, new UpdateSurveyDto()));
+        }
+
+
+
+        [Fact]
+        public async Task ExportResponsesToExcelAsync_NoResponses_StillReturnsFile()
+        {
+            var service = CreateService("Creator");
+            var survey = await AddSurvey(1);
+
+            var bytes = await service.ExportResponsesToExcelAsync(survey.Id, 1);
+
+            Assert.NotNull(bytes);
+            Assert.True(bytes.Length > 0);
+        }
+
+
+        [Fact]
+        public async Task GetCreatorSurveysAsync_NoSurveys_ReturnsEmpty()
+        {
+            var service = CreateService("Creator");
+
+            var result = await service.GetCreatorSurveysAsync(
+                1,
+                new GetMySurveysRequestDto());
+
+            Assert.Empty(result.Surveys);
+        }
+
+
+        [Fact]
+        public async Task CreateSurvey_NonExistentCreator_AllowsSurveyCreation()
+        {
+            var service = CreateService("Creator");
+
+            var dto = new CreateSurveyDto
+            {
+                Title = "Valid",
+                Questions = new()
+        {
+            new CreateQuestionDto { Text = "Q1", QuestionType = QuestionType.Text }
+        }
+            };
+
+            var publicId = await service.CreateSurvey(dto, creatorId: 999);
+
+            Assert.NotEmpty(publicId);
+        }
+
+        [Fact]
+        public async Task GetSurveyResponsesAsync_OnlyFromDate_Works()
+        {
+            var service = CreateService("Creator");
+            var survey = await AddSurvey(1);
+
+            var question = await _context.Set<Question>()
+                .FirstAsync(q => q.SurveyId == survey.Id);
+
+            await AddResponse(survey.Id, question.Id);
+
+            var result = await service.GetSurveyResponsesAsync(
+                survey.Id,
+                1,
+                new GetSurveyResponsesRequestDto
+                {
+                    FromDate = DateTime.UtcNow.AddMinutes(-5)
+                });
+
+            Assert.True(result.TotalResponses >= 1);
+        }
+
+
+        [Fact]
+        public async Task GetCreatorSurveysAsync_NoAutoDeactivation_NoUpdates()
+        {
+            var service = CreateService("Creator");
+
+            await AddSurvey(
+                createdById: 1,
+                isActive: true,
+                isDeleted: false);
+
+            var result = await service.GetCreatorSurveysAsync(
+                1,
+                new GetMySurveysRequestDto());
+
+            Assert.Single(result.Surveys);
+            Assert.True(result.Surveys.First().IsActive);
+        }
+
+
+        [Fact]
+        public async Task GetCreatorSurveysAsync_NotLockedSurvey_IsUnlocked()
+        {
+            var service = CreateService("Creator");
+
+            var survey = await AddSurvey(
+                createdById: 1,
+                isActive: true);
+
+            var result = await service.GetCreatorSurveysAsync(
+                1,
+                new GetMySurveysRequestDto());
+
+            Assert.False(result.Surveys.First().IsLocked);
+        }
+
+
+
+
+
     }
 }
